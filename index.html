@@ -129,295 +129,217 @@
 </div>
 <div class="toast" id="toast"></div>
 <script>
+
+'use strict';
 const pages=['overview','live','meetings','minutes','notes','settings','admin'];
-const names={overview:'Overview',live:'Live Meeting',meetings:'My Meetings',minutes:'AI Minutes',notes:'Notes & Bookmarks',settings:'Settings',admin:'Admin Console'};
-let meetings=[
- {title:'Weekly Operations Meeting',date:'19 Nov 2026',duration:'42 min',status:'Completed'},
- {title:'IT Project Status Review',date:'18 Nov 2026',duration:'35 min',status:'Completed'},
- {title:'Finance & Budget Discussion',date:'17 Nov 2026',duration:'28 min',status:'Completed'},
- {title:'Staff Training Planning',date:'15 Nov 2026',duration:'—',status:'Draft'}
-];
-let notes=[],recording=false,seconds=0,timerInterval=null,demoInterval=null,demoIndex=0;
+const pageNames={overview:'Overview',live:'Live Meeting',meetings:'My Meetings',minutes:'AI Minutes',notes:'Notes & Bookmarks',settings:'Settings',admin:'Admin Console'};
+const STORE_KEY='meetmind_ai_workspace_v5';
+let meetings=[],notes=[],currentTranscript=[],recording=false,seconds=0,timerInterval=null,demoInterval=null,demoIndex=0;
+let recognition=null,restartTimer=null,manualStop=false,sessionStartedAt=null;
 const demoLines=[
  ['Speaker 01','We need to complete the system testing by Friday.','සිකුරාදාට පෙර අපි system testing අවසන් කළ යුතුයි.'],
  ['Speaker 02','The finance team will confirm the budget tomorrow.','Finance team එක හෙට budget එක තහවුරු කරයි.'],
- ['Speaker 01','Let us schedule the staff training for next Monday.','Staff training එක ලබන සඳුදාට සැලසුම් කරමු.'],
- ['Speaker 03','Please share the final report with all department heads.','අවසාන වාර්තාව සියලුම අංශ ප්‍රධානීන් සමඟ බෙදාගන්න.'],
+ ['Speaker 01','Let us schedule staff training for next Monday.','ඊළඟ සඳුදා staff training එක සැලසුම් කරමු.'],
  ['Speaker 02','Any blockers should be reported to the project coordinator.','බාධාවක් තිබේ නම් project coordinator වෙත දැනුම් දෙන්න.']
 ];
-function showPage(id){pages.forEach(p=>document.getElementById(p).classList.toggle('active',p===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));document.getElementById('crumb').textContent=names[id];document.getElementById('sidebar').classList.remove('open');if(id==='meetings')renderMeetings();if(id==='notes')renderNotes();}
-document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-document.getElementById('menuBtn').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
-function toast(msg){let t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),2600)}
-function renderRecent(){document.getElementById('recentList').innerHTML=meetings.slice(0,3).map(m=>`<div class="meetingrow"><div class="meetingicon">📋</div><div class="meetinginfo"><b>${esc(m.title)}</b><span>${m.date} · ${m.duration}</span></div><span class="tag ${m.status==='Draft'?'amber':''}">${m.status}</span></div>`).join('')}
-function renderMeetings(){let q=(document.getElementById('meetingSearch')?.value||'').toLowerCase(),f=document.getElementById('meetingFilter')?.value||'all';let rows=meetings.filter(m=>m.title.toLowerCase().includes(q)&&(f==='all'||m.status===f));document.getElementById('meetingTable').innerHTML=rows.length?rows.map((m,i)=>`<tr><td><b>${esc(m.title)}</b></td><td>${m.date}</td><td>${m.duration}</td><td><span class="tag ${m.status==='Draft'?'amber':''}">${m.status}</span></td><td><button class="btn secondary" onclick="openMeeting(${meetings.indexOf(m)})">Open</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">No matching meetings found.</td></tr>'}
-function openMeeting(i){document.getElementById('minutesTitle').value=meetings[i].title;showPage('minutes');toast('Meeting selected. Add or review its transcript.')}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function addTranscript(line){let box=document.getElementById('transcript');if(box.querySelector('.empty'))box.innerHTML='';let d=document.createElement('div');d.className='utterance';d.innerHTML=`<div><span class="speaker">${esc(line[0])}</span><span class="time">${document.getElementById('timer').textContent}</span></div><p>${esc(line[1])}</p><div class="translation">${esc(line[2])}</div>`;box.appendChild(d);box.scrollTop=box.scrollHeight}
-let speechRecognition = null;
-let shouldRestartRecognition = false;
+function el(id){return document.getElementById(id)}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(msg){const t=el('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(window.mmToastTimer);window.mmToastTimer=setTimeout(()=>t.classList.remove('show'),3200)}
+function saveStore(){
+ try{localStorage.setItem(STORE_KEY,JSON.stringify({meetings:meetings,notes:notes}));return true}
+ catch(e){toast('Could not save: browser storage may be full. Export your records.');return false}
+}
+function loadStore(){
+ try{const d=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');meetings=Array.isArray(d.meetings)?d.meetings:[];notes=Array.isArray(d.notes)?d.notes:[]}
+ catch(e){meetings=[];notes=[];toast('Saved browser data could not be read.')}
+}
+function showPage(id){
+ if(!pages.includes(id))return;
+ pages.forEach(p=>{const n=el(p);if(n)n.classList.toggle('active',p===id)});
+ document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+ if(el('crumb'))el('crumb').textContent=pageNames[id];
+ if(el('sidebar'))el('sidebar').classList.remove('open');
+ if(id==='meetings')renderMeetings();
+ if(id==='notes')renderNotes();
+ if(id==='overview')renderRecent();
+}
+function fmtTime(n){const m=Math.floor(n/60),ss=n%60;return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')}
+function updateTimer(){if(el('timer'))el('timer').textContent=fmtTime(seconds)}
+function setRecordingUI(active,status){
+ if(el('recordBtn'))el('recordBtn').classList.toggle('recording',active);
+ if(el('recordStatus'))el('recordStatus').textContent=status;
+ if(el('liveBadge')){el('liveBadge').textContent=active?'LIVE · LISTENING':'NOT RECORDING';el('liveBadge').style.color=active?'#e45d69':'#9ba3b3'}
+}
+function renderTranscript(){
+ const box=el('transcript');if(!box)return;
+ if(!currentTranscript.length){box.innerHTML='<div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Start speaking. Recognised words will appear here.</p></div>';return}
+ box.innerHTML='';
+ currentTranscript.forEach((x,i)=>{
+  const d=document.createElement('div');d.className='utterance';
+  d.innerHTML='<div><span class="speaker">'+esc(x.speaker)+'</span><span class="time">'+esc(x.time)+'</span></div><p>'+esc(x.text)+'</p><div class="field" style="margin:7px 0 0"><label>Sinhala meaning / translation (manual in this test)</label><textarea rows="2" placeholder="සිංහල තේරුම මෙහි ඇතුළත් කරන්න...">'+esc(x.meaning||'')+'</textarea></div>';
+  d.querySelector('textarea').addEventListener('input',e=>{currentTranscript[i].meaning=e.target.value;saveDraft()});
+  box.appendChild(d);
+ });
+ box.scrollTop=box.scrollHeight;
+}
+function saveDraft(){try{sessionStorage.setItem('meetmind_live_draft',JSON.stringify(currentTranscript))}catch(e){}}
+function addTranscript(text,language){
+ const clean=String(text||'').trim();if(!clean)return;
+ const lang=language||'English';
+ currentTranscript.push({id:'line-'+Date.now()+'-'+currentTranscript.length,speaker:'Speaker 01 · '+lang,text:clean,meaning:'',time:fmtTime(seconds),language:lang});
+ saveDraft();renderTranscript();
+}
+function startTimer(){clearInterval(timerInterval);timerInterval=setInterval(()=>{seconds++;updateTimer()},1000)}
+function stopTimer(){clearInterval(timerInterval);timerInterval=null}
+function startDemo(){
+ currentTranscript=[];seconds=0;updateTimer();renderTranscript();recording=true;manualStop=false;sessionStartedAt=new Date().toISOString();
+ setRecordingUI(true,'Demo session running');startTimer();
+ addTranscript(demoLines[demoIndex%demoLines.length][1],'English');
+ addDemoMeaning(demoLines[(demoIndex)%demoLines.length][2]);demoIndex++;
+ demoInterval=setInterval(()=>{if(!recording)return;const line=demoLines[demoIndex%demoLines.length];addTranscript(line[1],'English');if(currentTranscript.length)currentTranscript[currentTranscript.length-1].meaning=line[2];saveDraft();renderTranscript();demoIndex++},4500);
+ toast('Demo session started.');
+}
+function addDemoMeaning(meaning){if(currentTranscript.length){currentTranscript[currentTranscript.length-1].meaning=meaning;saveDraft();renderTranscript()}}
 function startRecording(){
- if(!document.getElementById('consent').checked){toast('Please confirm participant consent before recording.');return}
- const source=document.getElementById('audioSource').value;
- if(source==='demo'){
-   recording=true;
-   document.getElementById('recordBtn').classList.add('recording');
-   document.getElementById('recordStatus').textContent='Demo session running';
-   document.getElementById('liveBadge').textContent='LIVE DEMO';
-   document.getElementById('liveBadge').style.color='#e45d69';
-   timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);
-   addTranscript(demoLines[demoIndex%demoLines.length]);demoIndex++;
-   demoInterval=setInterval(()=>{if(recording){addTranscript(demoLines[demoIndex%demoLines.length]);demoIndex++}},4500);
-   toast('Demo meeting started.');
-   return;
- }
- if(source!=='mic'){toast('This test version supports live microphone only. Choose Live microphone or Demo mode.');return}
- const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!SpeechRecognition){toast('Live speech recognition is not supported in this browser. Try the latest Google Chrome.');return}
- try{
-   speechRecognition=new SpeechRecognition();
-   speechRecognition.lang=document.getElementById('languageMode').value;
-   speechRecognition.continuous=true;
-   speechRecognition.interimResults=true;
-   speechRecognition.maxAlternatives=1;
-   shouldRestartRecognition=true;
-   speechRecognition.onstart=()=>{
-     recording=true;
-     document.getElementById('recordBtn').classList.add('recording');
-     document.getElementById('recordStatus').textContent='Listening to microphone';
-     document.getElementById('liveBadge').textContent='LIVE MICROPHONE';
-     document.getElementById('liveBadge').style.color='#e45d69';
-     if(!timerInterval)timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);
-     toast('Microphone listening started.');
-   };
-   speechRecognition.onresult=(event)=>{
-     let box=document.getElementById('transcript');
-     if(box.querySelector('.empty'))box.innerHTML='';
-     for(let i=event.resultIndex;i<event.results.length;i++){
-       const result=event.results[i], text=result[0].transcript.trim();
-       if(!text)continue;
-       if(result.isFinal){
-         const lang=speechRecognition.lang.startsWith('si')?'Sinhala':'English';
-         addTranscript([lang==='Sinhala'?'Speaker 01 · Sinhala':'Speaker 01 · English',text,lang==='Sinhala'?'සිංහල හඳුනාගත් පෙළ':'Sinhala translation is not connected in this HTML test.']);
-       }else{
-         let interim=document.getElementById('interimLine');
-         if(!interim){interim=document.createElement('div');interim.id='interimLine';interim.className='utterance';box.appendChild(interim)}
-         interim.innerHTML='<span class="speaker">Listening…</span><p>'+esc(text)+'</p><span class="muted small">Interim result</span>';
-         box.scrollTop=box.scrollHeight;
-       }
-     }
-   };
-   speechRecognition.onerror=(event)=>{
-     if(event.error==='not-allowed'||event.error==='service-not-allowed'){
-       shouldRestartRecognition=false;stopRecording();toast('Microphone permission was denied. Allow microphone access for Chrome and try again.');
-     }else if(event.error==='no-speech'){
-       document.getElementById('recordStatus').textContent='Listening… speak near the microphone';
-     }else{
-       document.getElementById('recordStatus').textContent='Speech recognition issue: '+event.error;
-       toast('Speech recognition issue: '+event.error);
-     }
-   };
-   speechRecognition.onend=()=>{
-     if(shouldRestartRecognition && recording){
-       try{speechRecognition.start()}catch(e){}
-     }
-   };
-   speechRecognition.start();
- }catch(e){toast('Could not start microphone recognition: '+e.message)}
+ if(recording)return;
+ if(!el('consent').checked){toast('Please confirm participant consent before recording.');return}
+ const source=el('audioSource').value;
+ if(source==='demo'){startDemo();return}
+ if(source!=='mic'){toast('This browser test supports microphone only. Computer/system audio is not available in this version.');return}
+ const SpeechAPI=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SpeechAPI){toast('Speech recognition is not available in this browser. Please use the latest Google Chrome.');return}
+ if(!window.isSecureContext){toast('Microphone and speech recognition require an HTTPS secure page.');return}
+ currentTranscript=[];seconds=0;updateTimer();renderTranscript();manualStop=false;sessionStartedAt=new Date().toISOString();
+ const lang=el('languageMode').value;
+ const rec=new SpeechAPI();recognition=rec;
+ rec.lang=lang;rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;
+ rec.onstart=()=>{
+  if(rec!==recognition)return;
+  recording=true;setRecordingUI(true,'Listening — speak clearly near the microphone');startTimer();toast('Live speech recognition started.');
+ };
+ rec.onresult=(event)=>{
+  if(rec!==recognition)return;
+  let interim='';
+  for(let i=event.resultIndex;i<event.results.length;i++){
+   const result=event.results[i],spoken=result[0]&&result[0].transcript?result[0].transcript.trim():'';
+   if(!spoken)continue;
+   if(result.isFinal)addTranscript(spoken,lang.startsWith('si')?'Sinhala':'English');
+   else interim+=spoken;
+  }
+  let old=el('interimLine');
+  if(interim){
+   if(!old){old=document.createElement('div');old.id='interimLine';old.className='utterance';el('transcript').appendChild(old)}
+   old.innerHTML='<span class="speaker">Listening…</span><p>'+esc(interim)+'</p>';
+  }else if(old)old.remove();
+ };
+ rec.onerror=(event)=>{
+  if(rec!==recognition)return;
+  const code=event.error||'unknown';
+  if(code==='not-allowed'||code==='service-not-allowed'){manualStop=true;stopRecording(false);toast('Microphone or speech permission denied. Check Chrome site permissions.')}
+  else if(code==='no-speech'){if(el('recordStatus'))el('recordStatus').textContent='No speech detected — still listening. Please speak.'}
+  else if(code==='network'){if(el('recordStatus'))el('recordStatus').textContent='Speech service network issue — attempting to reconnect.'}
+  else if(code!=='aborted'){if(el('recordStatus'))el('recordStatus').textContent='Recognition issue: '+code}
+ };
+ rec.onend=()=>{
+  if(rec!==recognition||manualStop)return;
+  if(recording){
+   clearTimeout(restartTimer);
+   restartTimer=setTimeout(()=>{
+    if(rec!==recognition||manualStop||!recording)return;
+    try{rec.start()}catch(e){if(el('recordStatus'))el('recordStatus').textContent='Reconnecting speech recognition…'}
+   },450);
+  }
+ };
+ try{rec.start()}catch(e){recognition=null;recording=false;stopTimer();setRecordingUI(false,'Could not start');toast('Could not start speech recognition: '+e.message)}
 }
-function stopRecording(){
- shouldRestartRecognition=false;
- recording=false;
- clearInterval(timerInterval);timerInterval=null;
- clearInterval(demoInterval);demoInterval=null;
- if(speechRecognition){try{speechRecognition.stop()}catch(e){}speechRecognition=null}
- document.getElementById('recordBtn').classList.remove('recording');
- document.getElementById('recordStatus').textContent='Session stopped';
- document.getElementById('liveBadge').textContent='STOPPED';
- document.getElementById('liveBadge').style.color='#9ba3b3';
- toast('Meeting session stopped.');
+function stopRecording(showMessage=true){
+ manualStop=true;recording=false;clearTimeout(restartTimer);clearInterval(demoInterval);demoInterval=null;stopTimer();
+ const old=el('interimLine');if(old)old.remove();
+ const rec=recognition;recognition=null;
+ if(rec){rec.onend=null;try{rec.stop()}catch(e){}}
+ setRecordingUI(false,'Finalizing meeting…');
+ if(currentTranscript.length)saveMeetingRecord();
+ else {setRecordingUI(false,'Stopped — no speech transcript captured');if(showMessage)toast('Stopped. No recognised speech was captured.')}
+ if(showMessage&&currentTranscript.length)toast('Meeting and transcript saved on this device.');
 }
-document.getElementById('recordBtn').onclick=()=>recording?stopRecording():startRecording();
-function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
-function addBookmark(){let txt='Bookmark at '+document.getElementById('timer').textContent;notes.unshift({type:'Bookmark',text:txt,date:'Today'});renderNotes();toast('Bookmark saved.')}
-function saveNote(){let v=document.getElementById('quickNote').value.trim();if(!v){toast('Please write a note first.');return}notes.unshift({type:'Personal note',text:v,date:'Today'});document.getElementById('quickNote').value='';document.getElementById('noteFeedback').textContent='Saved to this demo session.';renderNotes();toast('Note saved.')}
-function renderNotes(){document.getElementById('noteCount').textContent=notes.length+' items';let el=document.getElementById('notesList');el.innerHTML=notes.length?notes.map((n,i)=>`<div class="meetingrow"><div class="meetingicon">${n.type==='Bookmark'?'🔖':'✎'}</div><div class="meetinginfo"><b>${esc(n.type)}</b><span>${esc(n.date)} · ${esc(n.text)}</span></div><button class="btn danger" onclick="deleteNote(${i})">Delete</button></div>`).join(''):'<div class="empty">No notes yet. Add notes from a live meeting.</div>'}
-function deleteNote(i){notes.splice(i,1);renderNotes()}
-function generateMinutes(){let raw=document.getElementById('minutesInput').value.trim();if(!raw){toast('Paste a transcript first.');return}let sentences=raw.split(/(?<=[.!?])\s+/).filter(Boolean);let points=sentences.slice(0,5);let out=document.getElementById('minutesOutput');out.innerHTML=`<div class="panelhead"><div><span class="tag">GENERATED DEMO</span><h2 style="margin:10px 0 3px">${esc(document.getElementById('minutesTitle').value)}</h2><span class="muted small">19 November 2026 · Bilingual meeting minutes</span></div></div><div class="summarygrid"><div class="summarybox"><h4>🇬🇧 English summary</h4><p class="small">The meeting covered project progress, testing, budget confirmation and staff training. The team agreed on follow-up responsibilities and reporting of technical issues.</p></div><div class="summarybox"><h4>🇱🇰 සිංහල සාරාංශය</h4><p class="small">මෙම රැස්වීමේදී ව්‍යාපෘතියේ ප්‍රගතිය, පරීක්ෂණ, අයවැය තහවුරු කිරීම සහ කාර්ය මණ්ඩල පුහුණුව පිළිබඳ සාකච්ඡා කරන ලදී. ඉදිරි ක්‍රියාමාර්ග සහ වගකීම් පිළිබඳ එකඟතාවයකට පැමිණියේය.</p></div><div class="summarybox"><h4>Key discussion points</h4><ul>${points.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><div class="summarybox"><h4>ප්‍රධාන කරුණු</h4><ul><li>System testing සිකුරාදාට පෙර අවසන් කිරීම.</li><li>Finance team එක අයවැය තහවුරු කිරීම.</li><li>Staff training සඳහා දිනයක් නියම කිරීම.</li></ul></div><div class="summarybox"><h4>Decisions</h4><ul><li>Staff training will be planned for next Monday.</li><li>Final report will be shared with department heads.</li></ul></div><div class="summarybox"><h4>Action items</h4><ul><li>IT Team — Complete user testing by Friday.</li><li>Finance — Confirm the budget tomorrow.</li><li>Project Coordinator — Collect and track reported issues.</li></ul></div></div><p class="small muted" style="margin-top:15px">Note: This is a rule-based sample output for UI testing, not a verified AI-generated record. Review all details before using as official minutes.</p>`;toast('Demo minutes generated.')}
-function exportMinutes(type){let el=document.getElementById('minutesOutput');if(el.querySelector('.empty')){toast('Generate minutes before exporting.');return}let title=document.getElementById('minutesTitle').value;if(type==='txt'){let text=title+'\n\n'+el.innerText;let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='MeetMind-Minutes.txt';a.click();URL.revokeObjectURL(a.href)}else{let w=window.open('','_blank');w.document.write('<html><head><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:35px;line-height:1.6}h2{margin-top:25px}.summarygrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.summarybox{border:1px solid #ddd;padding:12px;border-radius:8px}</style></head><body>'+el.innerHTML+'</body></html>');w.document.close();w.print()}}
-const wave=document.getElementById('wave');for(let i=0;i<58;i++){let bar=document.createElement('i');bar.style.setProperty('--h',(8+Math.abs(Math.sin(i*.72))*34)+'px');wave.appendChild(bar)}
-renderRecent();renderMeetings();renderNotes();
-
-/* MeetMind AI full-function browser test layer */
-let currentTranscript = [];
-let currentMeetingStartedAt = null;
-const MM_STORE = 'meetmind_ai_local_test_v2';
-function mmLoad(){
- try{
-  const d=JSON.parse(localStorage.getItem(MM_STORE)||'{}');
-  if(Array.isArray(d.meetings)) meetings=d.meetings;
-  if(Array.isArray(d.notes)) notes=d.notes;
- }catch(e){console.warn('Local test data could not be loaded',e)}
-}
-function mmPersist(){
- try{localStorage.setItem(MM_STORE,JSON.stringify({meetings,notes}));}
- catch(e){toast('Browser storage is full or unavailable. Export your data.')}
-}
-function addTranscript(line){
- const speaker=line[0]||'Speaker 01';
- const spoken=line[1]||'';
- const meaning=(line[2]||'').includes('not connected')?'':line[2]||'';
- currentTranscript.push({speaker,text:spoken,meaning,time:document.getElementById('timer')?.textContent||'00:00',language:speaker.includes('Sinhala')?'Sinhala':'English'});
- try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(e){}
- const box=document.getElementById('transcript');
- if(box.querySelector('.empty'))box.innerHTML='';
- const idx=currentTranscript.length-1;
- const d=document.createElement('div');d.className='utterance';
- d.innerHTML='<div><span class="speaker">'+esc(speaker)+'</span><span class="time">'+esc(currentTranscript[idx].time)+'</span></div><p>'+esc(spoken)+'</p>'+
-  '<div class="field" style="margin:7px 0 0"><label>සිංහල meaning / translation (edit or type here)</label><textarea rows="2" data-meaning="'+idx+'" placeholder="Type the Sinhala meaning here...">'+esc(meaning)+'</textarea></div>';
- const ta=d.querySelector('textarea');
- ta.addEventListener('input',()=>{currentTranscript[idx].meaning=ta.value;try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(e){}});
- box.appendChild(d);box.scrollTop=box.scrollHeight;
+function saveMeetingRecord(){
+ const title=(el('meetingTitle').value||'Untitled meeting').trim();
+ const id='meeting-'+Date.now();
+ const record={id:id,title:title,date:new Date().toLocaleString(),duration:fmtTime(seconds),status:'Completed',transcript:currentTranscript.map(x=>({...x})),createdAt:sessionStartedAt||new Date().toISOString()};
+ meetings.unshift(record);
+ if(saveStore()){renderMeetings();renderRecent();if(el('saveMeetingFeedback'))el('saveMeetingFeedback').textContent='Saved automatically ✓'}
+ try{sessionStorage.removeItem('meetmind_live_draft')}catch(e){}
 }
 function saveCurrentMeeting(){
- const title=(document.getElementById('meetingTitle')?.value||'Untitled meeting').trim();
- if(!currentTranscript.length){toast('No transcript captured yet. Start speaking before saving.');return}
- const item={title,date:new Date().toLocaleString(),duration:document.getElementById('timer')?.textContent||fmt(seconds),status:'Completed',transcript:currentTranscript.map(x=>({...x})),notes:notes.filter(n=>n.meetingTitle===title)};
- const existing=meetings.findIndex(m=>m.id===item.id);
- item.id='mm-'+Date.now();
- meetings.unshift(item);mmPersist();renderMeetings();renderRecent();
- const fb=document.getElementById('saveMeetingFeedback');if(fb)fb.textContent='Saved on this device ✓';
- toast('Meeting and transcript saved in this browser.');
-}
-function renderMeetings(){
- const q=(document.getElementById('meetingSearch')?.value||'').toLowerCase();
- const f=document.getElementById('meetingFilter')?.value||'all';
- const rows=meetings.filter(m=>(m.title||'').toLowerCase().includes(q)&&(f==='all'||m.status===f));
- document.getElementById('meetingTable').innerHTML=rows.length?rows.map(m=>'<tr><td><b>'+esc(m.title)+'</b></td><td>'+esc(m.date||'—')+'</td><td>'+esc(m.duration||'—')+'</td><td><span class="tag">'+esc(m.status||'Completed')+'</span></td><td><button class="btn secondary" onclick="openMeetingById(\''+esc(m.id||'')+'\')">Open</button></td></tr>').join(''):'<tr><td colspan="5" class="empty">No matching meetings found.</td></tr>';
-}
-function openMeetingById(id){
- const m=meetings.find(x=>x.id===id);
- if(!m){toast('This is sample history. No saved transcript is attached.');return}
- currentTranscript=(m.transcript||[]).map(x=>({...x}));
- document.getElementById('minutesTitle').value=m.title;
- document.getElementById('minutesInput').value=currentTranscript.map(x=>x.speaker+': '+x.text).join('\n');
- showPage('minutes');generateMinutes();
-}
-function renderNotes(){
- document.getElementById('noteCount').textContent=notes.length+' items';
- const el=document.getElementById('notesList');
- el.innerHTML=notes.length?notes.map((n,i)=>'<div class="meetingrow"><div class="meetingicon">'+(n.type==='Bookmark'?'🔖':'✎')+'</div><div class="meetinginfo"><b>'+esc(n.type)+'</b><span>'+esc(n.date)+' · '+esc(n.text)+'</span></div><button class="btn danger" onclick="deleteNote('+i+')">Delete</button></div>').join(''):'<div class="empty">No notes yet. Add notes from a live meeting.</div>';
-}
-function saveNote(){
- const v=document.getElementById('quickNote').value.trim();if(!v){toast('Please write a note first.');return}
- notes.unshift({type:'Personal note',text:v,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle')?.value||''});
- document.getElementById('quickNote').value='';document.getElementById('noteFeedback').textContent='Saved on this device.';mmPersist();renderNotes();toast('Note saved locally.');
+ if(recording){toast('Stop the meeting first. It will auto-save when stopped.');return}
+ if(!currentTranscript.length){toast('There is no transcript to save yet.');return}
+ saveMeetingRecord();toast('Meeting saved.');
 }
 function addBookmark(){
- const txt='Bookmark at '+(document.getElementById('timer')?.textContent||'00:00');
- notes.unshift({type:'Bookmark',text:txt,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle')?.value||''});
- mmPersist();renderNotes();toast('Bookmark saved locally.');
+ notes.unshift({id:'note-'+Date.now(),type:'Bookmark',text:'Bookmark at '+fmtTime(seconds),date:new Date().toLocaleString(),meetingTitle:(el('meetingTitle').value||'')});
+ saveStore();renderNotes();toast('Bookmark saved.');
 }
-function deleteNote(i){notes.splice(i,1);mmPersist();renderNotes()}
+function saveNote(){
+ const field=el('quickNote'),value=field.value.trim();if(!value){toast('Write a note first.');return}
+ notes.unshift({id:'note-'+Date.now(),type:'Personal note',text:value,date:new Date().toLocaleString(),meetingTitle:(el('meetingTitle').value||'')});
+ field.value='';if(el('noteFeedback'))el('noteFeedback').textContent='Saved on this device ✓';saveStore();renderNotes();toast('Note saved.');
+}
+function deleteNote(index){notes.splice(index,1);saveStore();renderNotes()}
+function renderNotes(){
+ if(el('noteCount'))el('noteCount').textContent=notes.length+' items';
+ const box=el('notesList');if(!box)return;
+ box.innerHTML=notes.length?notes.map((n,i)=>'<div class="meetingrow"><div class="meetingicon">'+(n.type==='Bookmark'?'🔖':'✎')+'</div><div class="meetinginfo"><b>'+esc(n.type)+'</b><span>'+esc(n.date)+' · '+esc(n.text)+'</span></div><button class="btn danger" data-delete-note="'+i+'">Delete</button></div>').join(''):'<div class="empty">No notes saved yet.</div>';
+ box.querySelectorAll('[data-delete-note]').forEach(b=>b.addEventListener('click',()=>deleteNote(Number(b.dataset.deleteNote))));
+}
+function renderMeetings(){
+ const q=(el('meetingSearch')?.value||'').toLowerCase(),filter=el('meetingFilter')?.value||'all';
+ const rows=meetings.filter(m=>(m.title||'').toLowerCase().includes(q)&&(filter==='all'||m.status===filter));
+ const body=el('meetingTable');if(!body)return;
+ body.innerHTML=rows.length?rows.map((m,i)=>'<tr><td><b>'+esc(m.title)+'</b></td><td>'+esc(m.date||'—')+'</td><td>'+esc(m.duration||'—')+'</td><td><span class="tag">'+esc(m.status||'Completed')+'</span></td><td><button class="btn secondary" data-open-meeting="'+esc(m.id)+'">Open</button></td></tr>').join(''):'<tr><td colspan="5" class="empty">No saved meetings found.</td></tr>';
+ body.querySelectorAll('[data-open-meeting]').forEach(b=>b.addEventListener('click',()=>openMeeting(b.dataset.openMeeting)));
+}
+function renderRecent(){
+ const box=el('recentList');if(!box)return;
+ box.innerHTML=meetings.slice(0,3).map(m=>'<div class="meetingrow"><div class="meetingicon">📋</div><div class="meetinginfo"><b>'+esc(m.title)+'</b><span>'+esc(m.date)+' · '+esc(m.duration)+'</span></div><span class="tag">'+esc(m.status)+'</span></div>').join('')||'<div class="empty">No meetings saved yet. Start your first meeting.</div>';
+ if(el('statMeetings'))el('statMeetings').textContent=String(meetings.length);
+}
+function openMeeting(id){
+ const m=meetings.find(x=>x.id===id);if(!m){toast('Meeting record not found.');return}
+ currentTranscript=(m.transcript||[]).map(x=>({...x}));renderTranscript();
+ el('minutesTitle').value=m.title;el('minutesInput').value=currentTranscript.map(x=>x.speaker+': '+x.text+(x.meaning?' — '+x.meaning:'')).join('\n');
+ showPage('minutes');toast('Saved meeting loaded into minutes.');
+}
 function generateMinutes(){
- const raw=(document.getElementById('minutesInput').value||'').trim();
- if(!raw){toast('Paste or open a saved transcript first.');return}
+ const raw=(el('minutesInput').value||'').trim();if(!raw){toast('Enter or load a transcript first.');return}
  const lines=raw.split(/\n|(?<=[.!?])\s+/).map(x=>x.trim()).filter(Boolean);
- const actionWords=/\b(will|must|shall|need to|responsible|action|please|by (monday|tuesday|wednesday|thursday|friday|tomorrow|today))\b/i;
- const decisionWords=/\b(agreed|decided|approved|confirmed|will proceed|it was decided)\b/i;
- const actions=lines.filter(x=>actionWords.test(x));
- const decisions=lines.filter(x=>decisionWords.test(x));
- const title=esc(document.getElementById('minutesTitle').value||'Meeting minutes');
- const bullets=a=>a.length?a.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>No clear item detected. Please review the transcript and add manually.</li>';
- const out=document.getElementById('minutesOutput');
- out.innerHTML='<div class="panelhead"><div><span class="tag">EXTRACTED FROM TRANSCRIPT</span><h2 style="margin:10px 0 3px">'+title+'</h2><span class="muted small">'+new Date().toLocaleString()+'</span></div></div>'+
- '<div class="summarybox"><h4>Transcript overview (English)</h4><p class="small">'+esc(lines.slice(0,4).join(' '))+'</p></div>'+
- '<div class="summarygrid" style="margin-top:12px"><div class="summarybox"><h4>Discussion points</h4><ul>'+bullets(lines.slice(0,12))+'</ul></div>'+
- '<div class="summarybox"><h4>Possible decisions — review required</h4><ul>'+bullets(decisions)+'</ul></div>'+
- '<div class="summarybox"><h4>Possible action items — review required</h4><ul>'+bullets(actions)+'</ul></div>'+
- '<div class="summarybox"><h4>සිංහල සාරාංශය (manual entry)</h4><textarea id="sinhalaMinutes" placeholder="මෙහි සිංහල සාරාංශය ඇතුළත් කරන්න..." rows="5"></textarea></div></div>'+
- '<p class="small muted" style="margin-top:12px">This is extractive rule-based assistance, not an AI-verified summary. It does not invent owners or deadlines; please review and edit before sharing.</p>';
- toast('Minutes extracted from the actual transcript. Review the suggested items.');
-}
-function stopRecording(){
- shouldRestartRecognition=false;recording=false;
- clearInterval(timerInterval);timerInterval=null;clearInterval(demoInterval);demoInterval=null;
- if(speechRecognition){try{speechRecognition.stop()}catch(e){}speechRecognition=null}
- document.getElementById('recordBtn').classList.remove('recording');
- document.getElementById('recordStatus').textContent='Session stopped';
- document.getElementById('liveBadge').textContent='STOPPED';
- document.getElementById('liveBadge').style.color='#9ba3b3';
- toast('Meeting session stopped. Save it to My Meetings when ready.');
+ const decisions=lines.filter(x=>/\b(agreed|decided|approved|confirmed|will proceed)\b/i.test(x));
+ const actions=lines.filter(x=>/\b(will|must|shall|need to|responsible|please|by tomorrow|by friday|by monday)\b/i.test(x));
+ const title=esc(el('minutesTitle').value||'Meeting minutes');
+ const list=a=>a.length?a.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>Not clearly identified — please review the transcript.</li>';
+ el('minutesOutput').innerHTML='<div class="panelhead"><div><span class="tag">TRANSCRIPT-BASED DRAFT</span><h2>'+title+'</h2><span class="muted small">'+new Date().toLocaleString()+'</span></div></div><div class="summarybox"><h4>English overview</h4><p>'+esc(lines.slice(0,5).join(' '))+'</p></div><div class="summarygrid"><div class="summarybox"><h4>Discussion points</h4><ul>'+list(lines.slice(0,15))+'</ul></div><div class="summarybox"><h4>Possible decisions — review</h4><ul>'+list(decisions)+'</ul></div><div class="summarybox"><h4>Possible action items — review</h4><ul>'+list(actions)+'</ul></div><div class="summarybox"><h4>සිංහල සාරාංශය</h4><textarea id="sinhalaMinutes" rows="5" placeholder="සිංහල සාරාංශය මෙහි ලියන්න..."></textarea></div></div><p class="small muted">Rule-based draft only. Review all extracted items; this is not an AI-verified summary.</p>';
 }
 function exportMinutes(type){
- const el=document.getElementById('minutesOutput');
- if(el.querySelector('.empty')){toast('Generate minutes before exporting.');return}
- const title=document.getElementById('minutesTitle').value||'MeetMind Minutes';
- const sinhala=el.querySelector('#sinhalaMinutes')?.value||'';
- const content=title+'\n\n'+el.innerText+'\n\nSinhala summary:\n'+sinhala;
- if(type==='txt'){
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download='MeetMind-Minutes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
- }else{
-  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print or save as PDF.');return}
-  w.document.write('<html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'</body></html>');w.document.close();w.focus();w.print();
- }
+ const out=el('minutesOutput');if(!out||out.querySelector('.empty')){toast('Generate minutes before exporting.');return}
+ const title=el('minutesTitle').value||'MeetMind Minutes',content=title+'\n\n'+out.innerText+'\n\nSinhala summary:\n'+(out.querySelector('#sinhalaMinutes')?.value||'');
+ if(type==='txt'){const a=document.createElement('a');const u=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.href=u;a.download='MeetMind-Minutes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),1200);return}
+ const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print or save as PDF.');return}
+ w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'</body></html>');w.document.close();w.focus();w.print();
 }
-mmLoad();
-try{const saved=JSON.parse(localStorage.getItem('meetmind_current_transcript')||'[]');if(saved.length)currentTranscript=saved}catch(e){}
-renderMeetings();renderNotes();renderRecent();
-
-
-/* V04 continuous mic stream + actual audio capture + automatic local save */
-let mmMicStream=null,mmRecorder=null,mmChunks=[],mmRestartTimer=null;
-const MM_DB_NAME='meetmind_recordings_v4',MM_DB_STORE='audio';
-function mmDB(){return new Promise((ok,no)=>{const r=indexedDB.open(MM_DB_NAME,1);r.onupgradeneeded=()=>r.result.createObjectStore(MM_DB_STORE,{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
-async function mmSaveAudio(id,blob){const db=await mmDB();await new Promise((ok,no)=>{const t=db.transaction(MM_DB_STORE,'readwrite');t.objectStore(MM_DB_STORE).put({id,blob,type:blob.type,savedAt:new Date().toISOString()});t.oncomplete=ok;t.onerror=()=>no(t.error)});db.close()}
-function mmPersist(){try{localStorage.setItem(MM_STORE,JSON.stringify({meetings,notes}));return true}catch(e){toast('Browser storage full. Export or remove older data.');return false}}
-function mmLoad(){try{const d=JSON.parse(localStorage.getItem(MM_STORE)||'{}');if(Array.isArray(d.meetings))meetings=d.meetings;if(Array.isArray(d.notes))notes=d.notes}catch(e){}}
-function mmUI(active,status){document.getElementById('recordBtn').classList.toggle('recording',active);document.getElementById('recordStatus').textContent=status;document.getElementById('liveBadge').textContent=active?'LIVE · MIC ACTIVE':'STOPPED';document.getElementById('liveBadge').style.color=active?'#e45d69':'#9ba3b3'}
-function mmRenderTranscript(){const box=document.getElementById('transcript');box.innerHTML='';if(!currentTranscript.length){box.innerHTML='<div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Start a live microphone session to capture speech.</p></div>';return}currentTranscript.forEach((x,i)=>{const d=document.createElement('div');d.className='utterance';d.innerHTML='<div><span class="speaker">'+esc(x.speaker)+'</span><span class="time">'+esc(x.time)+'</span></div><p>'+esc(x.text)+'</p><div class="field" style="margin:7px 0 0"><label>Sinhala meaning / translation</label><textarea rows="2" placeholder="Enter Sinhala meaning...">'+esc(x.meaning||'')+'</textarea></div>';d.querySelector('textarea').addEventListener('input',e=>{currentTranscript[i].meaning=e.target.value;try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(_){}});box.appendChild(d)});box.scrollTop=box.scrollHeight}
-function addTranscript(line){currentTranscript.push({speaker:line[0]||'Speaker 01',text:line[1]||'',meaning:(line[2]||'').includes('not connected')?'':line[2]||'',time:document.getElementById('timer').textContent,language:(line[0]||'').includes('Sinhala')?'Sinhala':'English'});try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(e){}mmRenderTranscript()}
-function mmSaveMeeting(audioBlob){const title=(document.getElementById('meetingTitle').value||'Untitled meeting').trim(),id='mm-'+Date.now();const item={id,title,date:new Date().toLocaleString(),duration:document.getElementById('timer').textContent,status:'Completed',transcript:currentTranscript.map(x=>({...x})),audioSaved:false};meetings.unshift(item);mmPersist();if(audioBlob&&audioBlob.size){mmSaveAudio(id,audioBlob).then(()=>{item.audioSaved=true;mmPersist();toast('Meeting, transcript and audio saved on this device.')}).catch(e=>toast('Transcript saved; audio save failed: '+e.message))}else toast('Meeting and transcript saved on this device.');renderMeetings();renderRecent();const fb=document.getElementById('saveMeetingFeedback');if(fb)fb.textContent='Auto-saved ✓'}
-async function startRecording(){
- if(recording)return;
- if(!document.getElementById('consent').checked){toast('Confirm participant consent before recording.');return}
- const source=document.getElementById('audioSource').value;
- if(source==='demo'){currentTranscript=[];mmRenderTranscript();seconds=0;document.getElementById('timer').textContent='00:00';recording=true;mmUI(true,'Demo session running');timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);addTranscript(demoLines[demoIndex++%demoLines.length]);demoInterval=setInterval(()=>{if(recording)addTranscript(demoLines[demoIndex++%demoLines.length])},4500);return}
- if(source!=='mic'){toast('This version supports microphone capture. System audio is not yet implemented.');return}
- const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('Speech recognition is unavailable in this browser. Use current Chrome.');return}
- try{
-  document.getElementById('recordStatus').textContent='Requesting microphone permission…';
-  mmMicStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-  if(!window.MediaRecorder)throw new Error('MediaRecorder is not supported in this browser.');
-  currentTranscript=[];mmChunks=[];seconds=0;document.getElementById('timer').textContent='00:00';mmRenderTranscript();
-  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(x=>MediaRecorder.isTypeSupported(x));
-  mmRecorder=new MediaRecorder(mmMicStream,mime?{mimeType:mime}:undefined);
-  mmRecorder.ondataavailable=e=>{if(e.data&&e.data.size)mmChunks.push(e.data)};
-  mmRecorder.onstop=()=>{const blob=new Blob(mmChunks,{type:mmRecorder?.mimeType||'audio/webm'});mmSaveMeeting(blob);if(mmMicStream){mmMicStream.getTracks().forEach(t=>t.stop());mmMicStream=null}mmRecorder=null};
-  mmRecorder.start(1000);
-  speechRecognition=new SR();speechRecognition.lang=document.getElementById('languageMode').value;speechRecognition.continuous=true;speechRecognition.interimResults=true;speechRecognition.maxAlternatives=1;shouldRestartRecognition=true;
-  speechRecognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i],t=r[0].transcript.trim();if(r.isFinal&&t)addTranscript([speechRecognition.lang.startsWith('si')?'Speaker 01 · Sinhala':'Speaker 01 · English',t,''])}};
-  speechRecognition.onerror=e=>{if(['not-allowed','service-not-allowed','audio-capture'].includes(e.error)){shouldRestartRecognition=false;toast('Speech recognition error: '+e.error+'. Audio recording remains active; press Stop to finish and save.')}};
-  speechRecognition.onend=()=>{if(shouldRestartRecognition&&recording){clearTimeout(mmRestartTimer);mmRestartTimer=setTimeout(()=>{if(shouldRestartRecognition&&recording&&speechRecognition){try{speechRecognition.start()}catch(e){}}},300)}};
-  speechRecognition.start();recording=true;mmUI(true,'Microphone active — continuous audio recording');timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);toast('Microphone active. It remains on until you press Stop.');
- }catch(e){shouldRestartRecognition=false;if(speechRecognition){try{speechRecognition.stop()}catch(_){}speechRecognition=null}if(mmMicStream){mmMicStream.getTracks().forEach(t=>t.stop());mmMicStream=null}recording=false;mmUI(false,'Could not start microphone');toast('Could not start: '+e.message)}
+function clearAllData(){
+ if(!confirm('Delete all saved MeetMind meetings and notes from this browser?'))return;
+ meetings=[];notes=[];saveStore();renderMeetings();renderNotes();renderRecent();toast('Local test data cleared.');
 }
-function stopRecording(){
- if(!recording&&!mmRecorder)return;recording=false;shouldRestartRecognition=false;clearTimeout(mmRestartTimer);clearInterval(timerInterval);timerInterval=null;clearInterval(demoInterval);demoInterval=null;
- if(speechRecognition){try{speechRecognition.stop()}catch(e){}speechRecognition=null}
- mmUI(false,'Finalizing and automatically saving…');
- if(mmRecorder&&mmRecorder.state!=='inactive')mmRecorder.stop();else if(mmMicStream){mmMicStream.getTracks().forEach(t=>t.stop());mmMicStream=null;mmSaveMeeting(null)}
- if(!mmRecorder&&currentTranscript.length)mmSaveMeeting(null);
+function init(){
+ loadStore();
+ document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+ if(el('menuBtn'))el('menuBtn').addEventListener('click',()=>el('sidebar').classList.toggle('open'));
+ if(el('recordBtn'))el('recordBtn').addEventListener('click',()=>recording?stopRecording():startRecording());
+ renderMeetings();renderNotes();renderRecent();renderTranscript();
+ if(el('statMeetings'))el('statMeetings').textContent=String(meetings.length);
 }
-document.getElementById('recordBtn').onclick=()=>recording?stopRecording():startRecording();
-function saveCurrentMeeting(){if(recording){toast('Press Stop first. The meeting auto-saves when recording finishes.');return}if(!currentTranscript.length){toast('No transcript to save.');return}mmSaveMeeting(null)}
-function saveNote(){const v=document.getElementById('quickNote').value.trim();if(!v){toast('Write a note first.');return}notes.unshift({type:'Personal note',text:v,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle').value||''});document.getElementById('quickNote').value='';document.getElementById('noteFeedback').textContent='Saved ✓';mmPersist();renderNotes();toast('Note saved on this device.')}
-function addBookmark(){notes.unshift({type:'Bookmark',text:'Bookmark at '+document.getElementById('timer').textContent,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle').value||''});mmPersist();renderNotes();toast('Bookmark saved.')}
-function renderMeetings(){const q=(document.getElementById('meetingSearch')?.value||'').toLowerCase(),f=(document.getElementById('meetingFilter')?.value||'all'),rows=meetings.filter(m=>(m.title||'').toLowerCase().includes(q)&&(f==='all'||m.status===f));const table=document.getElementById('meetingTable');table.innerHTML=rows.length?rows.map(m=>'<tr><td><b>'+esc(m.title)+'</b></td><td>'+esc(m.date||'—')+'</td><td>'+esc(m.duration||'—')+'</td><td><span class="tag">'+esc(m.status||'Completed')+'</span></td><td><button class="btn secondary" data-open-id="'+esc(m.id||'')+'">Open</button></td></tr>').join(''):'<tr><td colspan="5" class="empty">No saved meetings.</td></tr>';table.querySelectorAll('[data-open-id]').forEach(b=>b.addEventListener('click',()=>openMeetingById(b.dataset.openId)))}
-function openMeetingById(id){const m=meetings.find(x=>x.id===id);if(!m){toast('Meeting not found.');return}currentTranscript=(m.transcript||[]).map(x=>({...x}));document.getElementById('minutesTitle').value=m.title;document.getElementById('minutesInput').value=currentTranscript.map(x=>x.speaker+': '+x.text).join('\\n');showPage('minutes');generateMinutes()}
-function mmInitV4(){mmLoad();try{const d=JSON.parse(localStorage.getItem('meetmind_current_transcript')||'[]');if(d.length)currentTranscript=d}catch(e){}renderMeetings();renderNotes();renderRecent();mmRenderTranscript()}
-mmInitV4();
+init();
 
 </script>
+
 </body>
 </html>
