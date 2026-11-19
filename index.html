@@ -70,6 +70,13 @@
      <div class="panel"><div class="panelhead"><h3>Live transcript</h3><span class="livebadge" id="liveBadge" style="color:#9ba3b3">NOT RECORDING</span></div><div class="transcript" id="transcript">
       <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Choose Live microphone to test real speech recognition, or Demo mode for sample content.</p></div>
      </div></div>
+
+<div class="panel" id="saveMeetingPanel">
+ <div class="panelhead"><h3>Save this meeting</h3><span class="tag gray">On this device</span></div>
+ <p class="small muted">Save the captured transcript and your notes in this browser's local storage.</p>
+ <button class="btn primary" onclick="saveCurrentMeeting()">💾 Save meeting & transcript</button>
+ <span class="small muted" id="saveMeetingFeedback" style="margin-left:10px"></span>
+</div>
     </div>
     <div>
      <div class="panel"><div class="panelhead"><h3>Meeting insights</h3><span class="tag gray">Live preview</span></div>
@@ -240,6 +247,125 @@ function generateMinutes(){let raw=document.getElementById('minutesInput').value
 function exportMinutes(type){let el=document.getElementById('minutesOutput');if(el.querySelector('.empty')){toast('Generate minutes before exporting.');return}let title=document.getElementById('minutesTitle').value;if(type==='txt'){let text=title+'\n\n'+el.innerText;let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='MeetMind-Minutes.txt';a.click();URL.revokeObjectURL(a.href)}else{let w=window.open('','_blank');w.document.write('<html><head><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:35px;line-height:1.6}h2{margin-top:25px}.summarygrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.summarybox{border:1px solid #ddd;padding:12px;border-radius:8px}</style></head><body>'+el.innerHTML+'</body></html>');w.document.close();w.print()}}
 const wave=document.getElementById('wave');for(let i=0;i<58;i++){let bar=document.createElement('i');bar.style.setProperty('--h',(8+Math.abs(Math.sin(i*.72))*34)+'px');wave.appendChild(bar)}
 renderRecent();renderMeetings();renderNotes();
+
+/* MeetMind AI full-function browser test layer */
+let currentTranscript = [];
+let currentMeetingStartedAt = null;
+const MM_STORE = 'meetmind_ai_local_test_v2';
+function mmLoad(){
+ try{
+  const d=JSON.parse(localStorage.getItem(MM_STORE)||'{}');
+  if(Array.isArray(d.meetings)) meetings=d.meetings;
+  if(Array.isArray(d.notes)) notes=d.notes;
+ }catch(e){console.warn('Local test data could not be loaded',e)}
+}
+function mmPersist(){
+ try{localStorage.setItem(MM_STORE,JSON.stringify({meetings,notes}));}
+ catch(e){toast('Browser storage is full or unavailable. Export your data.')}
+}
+function addTranscript(line){
+ const speaker=line[0]||'Speaker 01';
+ const spoken=line[1]||'';
+ const meaning=(line[2]||'').includes('not connected')?'':line[2]||'';
+ currentTranscript.push({speaker,text:spoken,meaning,time:document.getElementById('timer')?.textContent||'00:00',language:speaker.includes('Sinhala')?'Sinhala':'English'});
+ try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(e){}
+ const box=document.getElementById('transcript');
+ if(box.querySelector('.empty'))box.innerHTML='';
+ const idx=currentTranscript.length-1;
+ const d=document.createElement('div');d.className='utterance';
+ d.innerHTML='<div><span class="speaker">'+esc(speaker)+'</span><span class="time">'+esc(currentTranscript[idx].time)+'</span></div><p>'+esc(spoken)+'</p>'+
+  '<div class="field" style="margin:7px 0 0"><label>සිංහල meaning / translation (edit or type here)</label><textarea rows="2" data-meaning="'+idx+'" placeholder="Type the Sinhala meaning here...">'+esc(meaning)+'</textarea></div>';
+ const ta=d.querySelector('textarea');
+ ta.addEventListener('input',()=>{currentTranscript[idx].meaning=ta.value;try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(e){}});
+ box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+function saveCurrentMeeting(){
+ const title=(document.getElementById('meetingTitle')?.value||'Untitled meeting').trim();
+ if(!currentTranscript.length){toast('No transcript captured yet. Start speaking before saving.');return}
+ const item={title,date:new Date().toLocaleString(),duration:document.getElementById('timer')?.textContent||fmt(seconds),status:'Completed',transcript:currentTranscript.map(x=>({...x})),notes:notes.filter(n=>n.meetingTitle===title)};
+ const existing=meetings.findIndex(m=>m.id===item.id);
+ item.id='mm-'+Date.now();
+ meetings.unshift(item);mmPersist();renderMeetings();renderRecent();
+ const fb=document.getElementById('saveMeetingFeedback');if(fb)fb.textContent='Saved on this device ✓';
+ toast('Meeting and transcript saved in this browser.');
+}
+function renderMeetings(){
+ const q=(document.getElementById('meetingSearch')?.value||'').toLowerCase();
+ const f=document.getElementById('meetingFilter')?.value||'all';
+ const rows=meetings.filter(m=>(m.title||'').toLowerCase().includes(q)&&(f==='all'||m.status===f));
+ document.getElementById('meetingTable').innerHTML=rows.length?rows.map(m=>'<tr><td><b>'+esc(m.title)+'</b></td><td>'+esc(m.date||'—')+'</td><td>'+esc(m.duration||'—')+'</td><td><span class="tag">'+esc(m.status||'Completed')+'</span></td><td><button class="btn secondary" onclick="openMeetingById(\''+esc(m.id||'')+'\')">Open</button></td></tr>').join(''):'<tr><td colspan="5" class="empty">No matching meetings found.</td></tr>';
+}
+function openMeetingById(id){
+ const m=meetings.find(x=>x.id===id);
+ if(!m){toast('This is sample history. No saved transcript is attached.');return}
+ currentTranscript=(m.transcript||[]).map(x=>({...x}));
+ document.getElementById('minutesTitle').value=m.title;
+ document.getElementById('minutesInput').value=currentTranscript.map(x=>x.speaker+': '+x.text).join('\n');
+ showPage('minutes');generateMinutes();
+}
+function renderNotes(){
+ document.getElementById('noteCount').textContent=notes.length+' items';
+ const el=document.getElementById('notesList');
+ el.innerHTML=notes.length?notes.map((n,i)=>'<div class="meetingrow"><div class="meetingicon">'+(n.type==='Bookmark'?'🔖':'✎')+'</div><div class="meetinginfo"><b>'+esc(n.type)+'</b><span>'+esc(n.date)+' · '+esc(n.text)+'</span></div><button class="btn danger" onclick="deleteNote('+i+')">Delete</button></div>').join(''):'<div class="empty">No notes yet. Add notes from a live meeting.</div>';
+}
+function saveNote(){
+ const v=document.getElementById('quickNote').value.trim();if(!v){toast('Please write a note first.');return}
+ notes.unshift({type:'Personal note',text:v,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle')?.value||''});
+ document.getElementById('quickNote').value='';document.getElementById('noteFeedback').textContent='Saved on this device.';mmPersist();renderNotes();toast('Note saved locally.');
+}
+function addBookmark(){
+ const txt='Bookmark at '+(document.getElementById('timer')?.textContent||'00:00');
+ notes.unshift({type:'Bookmark',text:txt,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle')?.value||''});
+ mmPersist();renderNotes();toast('Bookmark saved locally.');
+}
+function deleteNote(i){notes.splice(i,1);mmPersist();renderNotes()}
+function generateMinutes(){
+ const raw=(document.getElementById('minutesInput').value||'').trim();
+ if(!raw){toast('Paste or open a saved transcript first.');return}
+ const lines=raw.split(/\n|(?<=[.!?])\s+/).map(x=>x.trim()).filter(Boolean);
+ const actionWords=/\b(will|must|shall|need to|responsible|action|please|by (monday|tuesday|wednesday|thursday|friday|tomorrow|today))\b/i;
+ const decisionWords=/\b(agreed|decided|approved|confirmed|will proceed|it was decided)\b/i;
+ const actions=lines.filter(x=>actionWords.test(x));
+ const decisions=lines.filter(x=>decisionWords.test(x));
+ const title=esc(document.getElementById('minutesTitle').value||'Meeting minutes');
+ const bullets=a=>a.length?a.map(x=>'<li>'+esc(x)+'</li>').join(''):'<li>No clear item detected. Please review the transcript and add manually.</li>';
+ const out=document.getElementById('minutesOutput');
+ out.innerHTML='<div class="panelhead"><div><span class="tag">EXTRACTED FROM TRANSCRIPT</span><h2 style="margin:10px 0 3px">'+title+'</h2><span class="muted small">'+new Date().toLocaleString()+'</span></div></div>'+
+ '<div class="summarybox"><h4>Transcript overview (English)</h4><p class="small">'+esc(lines.slice(0,4).join(' '))+'</p></div>'+
+ '<div class="summarygrid" style="margin-top:12px"><div class="summarybox"><h4>Discussion points</h4><ul>'+bullets(lines.slice(0,12))+'</ul></div>'+
+ '<div class="summarybox"><h4>Possible decisions — review required</h4><ul>'+bullets(decisions)+'</ul></div>'+
+ '<div class="summarybox"><h4>Possible action items — review required</h4><ul>'+bullets(actions)+'</ul></div>'+
+ '<div class="summarybox"><h4>සිංහල සාරාංශය (manual entry)</h4><textarea id="sinhalaMinutes" placeholder="මෙහි සිංහල සාරාංශය ඇතුළත් කරන්න..." rows="5"></textarea></div></div>'+
+ '<p class="small muted" style="margin-top:12px">This is extractive rule-based assistance, not an AI-verified summary. It does not invent owners or deadlines; please review and edit before sharing.</p>';
+ toast('Minutes extracted from the actual transcript. Review the suggested items.');
+}
+function stopRecording(){
+ shouldRestartRecognition=false;recording=false;
+ clearInterval(timerInterval);timerInterval=null;clearInterval(demoInterval);demoInterval=null;
+ if(speechRecognition){try{speechRecognition.stop()}catch(e){}speechRecognition=null}
+ document.getElementById('recordBtn').classList.remove('recording');
+ document.getElementById('recordStatus').textContent='Session stopped';
+ document.getElementById('liveBadge').textContent='STOPPED';
+ document.getElementById('liveBadge').style.color='#9ba3b3';
+ toast('Meeting session stopped. Save it to My Meetings when ready.');
+}
+function exportMinutes(type){
+ const el=document.getElementById('minutesOutput');
+ if(el.querySelector('.empty')){toast('Generate minutes before exporting.');return}
+ const title=document.getElementById('minutesTitle').value||'MeetMind Minutes';
+ const sinhala=el.querySelector('#sinhalaMinutes')?.value||'';
+ const content=title+'\n\n'+el.innerText+'\n\nSinhala summary:\n'+sinhala;
+ if(type==='txt'){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download='MeetMind-Minutes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ }else{
+  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print or save as PDF.');return}
+  w.document.write('<html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'</body></html>');w.document.close();w.focus();w.print();
+ }
+}
+mmLoad();
+try{const saved=JSON.parse(localStorage.getItem('meetmind_current_transcript')||'[]');if(saved.length)currentTranscript=saved}catch(e){}
+renderMeetings();renderNotes();renderRecent();
+
 </script>
 </body>
 </html>
