@@ -71,6 +71,12 @@
       <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Choose Live microphone to test real speech recognition, or Demo mode for sample content.</p></div>
      </div></div>
 
+<div class="panel" id="folderStoragePanel">
+ <div class="panelhead"><h3>Transcript folder storage</h3><span class="tag gray" id="folderStorageStatus">Folder not selected</span></div>
+ <p class="small muted">Select a folder on this computer. MeetMind will automatically write meeting JSON and TXT files there. The browser asks permission; the folder is never uploaded to GitHub.</p>
+ <div class="toolbar"><button class="btn primary" id="chooseTranscriptFolder">📁 Select transcript folder</button><button class="btn outline" id="reconnectTranscriptFolder" style="display:none">Reconnect folder</button></div>
+ <p class="small muted" id="folderStorageMessage" style="margin-top:10px">Folder selection is required for direct file saving. Browser support: Chrome or Edge on HTTPS desktop.</p>
+</div>
 <div class="panel" id="saveMeetingPanel">
  <div class="panelhead"><h3>Save this meeting</h3><span class="tag gray">On this device</span></div>
  <p class="small muted">Recognised transcript and notes automatically save in this browser when you press Stop. Raw audio files are not saved in this version.</p>
@@ -323,7 +329,44 @@ function exportMinutes(type){
  const title=el('minutesTitle').value||'MeetMind Minutes',content=title+'\n\n'+out.innerText+'\n\nSinhala summary:\n'+(out.querySelector('#sinhalaMinutes')?.value||'');
  if(type==='txt'){const a=document.createElement('a');const u=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.href=u;a.download='MeetMind-Minutes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),1200);return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print or save as PDF.');return}
- w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'</body></html>');w.document.close();w.focus();w.print();
+ w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'<script id="meetmind-folder-storage">
+/* MeetMind AI: user-selected local transcript folder storage */
+(()=>{
+ 'use strict';
+ const DB='meetmind_local_folder_v1', STORE='handles', KEY='transcript-folder';
+ let directoryHandle=null, activeRecordId=null, writeQueue=Promise.resolve();
+ const $=id=>document.getElementById(id);
+ const supported=!!(window.showDirectoryPicker&&window.isSecureContext&&window.indexedDB);
+ function status(text,good=false){const n=$('folderStorageStatus');if(n){n.textContent=text;n.className=good?'tag':'tag gray'}}
+ function message(text){const n=$('folderStorageMessage');if(n)n.textContent=text}
+ function dbOpen(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+ async function dbSet(v){const db=await dbOpen();await new Promise((resolve,reject)=>{const t=db.transaction(STORE,'readwrite');t.objectStore(STORE).put(v,KEY);t.oncomplete=resolve;t.onerror=()=>reject(t.error)});db.close()}
+ async function dbGet(){const db=await dbOpen();const v=await new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).get(KEY);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});db.close();return v}
+ async function permission(handle,write){const opts={mode:write?'readwrite':'read'};if((await handle.queryPermission(opts))==='granted')return true;return (await handle.requestPermission(opts))==='granted'}
+ async function choose(){if(!supported){status('Not supported');message('Direct folder saving requires desktop Chrome or Edge on HTTPS. Use Export to download files on unsupported browsers.');return}
+  try{directoryHandle=await window.showDirectoryPicker({id:'meetmind-transcripts',mode:'readwrite'});if(!(await permission(directoryHandle,true))){directoryHandle=null;status('Permission denied');return}await dbSet(directoryHandle);status('Folder connected',true);message('Selected folder is ready. Transcript files will be updated automatically during meetings.');$('reconnectTranscriptFolder').style.display='inline-flex';await writeIndex()}catch(e){if(e.name!=='AbortError'){status('Folder error');message(e.message)}}
+ }
+ async function reconnect(){try{directoryHandle=await dbGet();if(!directoryHandle){message('Please select a transcript folder first.');return}if(await permission(directoryHandle,true)){status('Folder connected',true);message('Folder permission restored.');await writeIndex()}else{status('Permission needed');message('Select the folder again to grant write access.')}}catch(e){status('Reconnect failed');message(e.message)}}
+ function safeName(s){return String(s||'Meeting').normalize('NFKC').replace(/[\\/:*?"<>|]+/g,'_').replace(/\s+/g,' ').trim().slice(0,70)||'Meeting'}
+ function stamp(d){return new Date(d||Date.now()).toISOString().replace(/[:.]/g,'-')}
+ async function writeFile(name,content,type){if(!directoryHandle)throw new Error('Transcript folder is not connected.');if(!(await permission(directoryHandle,true)))throw new Error('Folder permission is not granted. Reconnect the folder.');const h=await directoryHandle.getFileHandle(name,{create:true});const w=await h.createWritable();await w.write(new Blob([content],{type}));await w.close()}
+ function transcriptText(m){const lines=[m.title||'Meeting transcript','Date: '+(m.date||''),'Duration: '+(m.duration||''),'','TRANSCRIPT'];(m.transcript||[]).forEach(x=>{lines.push('['+(x.time||'')+'] '+(x.speaker||'Speaker')+': '+(x.text||''));if(x.meaning)lines.push('Sinhala: '+x.meaning)});return lines.join('\n')}
+ async function saveRecord(m){if(!directoryHandle)return;const base=stamp(m.createdAt||Date.now())+'_'+safeName(m.title);const json=JSON.stringify({...m,storage:'user-selected-local-folder'},null,2);await writeFile(base+'.json',json,'application/json;charset=utf-8');await writeFile(base+'.txt',transcriptText(m),'text/plain;charset=utf-8');await writeIndex()}
+ async function writeIndex(){if(!directoryHandle)return;const list=JSON.parse(localStorage.getItem('meetmind_folder_index')||'[]');await writeFile('meetmind-index.json',JSON.stringify({app:'MeetMind AI',updatedAt:new Date().toISOString(),records:list},null,2),'application/json;charset=utf-8')}
+ function queueSave(m){writeQueue=writeQueue.then(()=>saveRecord(m)).catch(e=>{status('Save error');message('Transcript remains in browser storage, but folder write failed: '+e.message)});return writeQueue}
+ // Hook into existing transcript capture without replacing its rendering logic.
+ const originalAdd=window.addTranscript;
+ if(typeof originalAdd==='function'){window.addTranscript=function(text,language){originalAdd.apply(this,arguments);const lines=window.currentTranscript||[];const latest=lines[lines.length-1];if(latest){const id=activeRecordId||('live-'+Date.now());const rec={id,title:$('meetingTitle')?.value||'Untitled meeting',date:new Date().toLocaleString(),createdAt:window.sessionStartedAt||new Date().toISOString(),duration:$('timer')?.textContent||'00:00',status:'In progress',transcript:lines.map(x=>({...x}))};try{localStorage.setItem('meetmind_folder_index',JSON.stringify([{id,title:rec.title,date:rec.date,status:rec.status},...JSON.parse(localStorage.getItem('meetmind_folder_index')||'[]').filter(x=>x.id!==id)]))}catch(e){}if(directoryHandle)queueSave(rec)}}}
+ // Idempotent final save: write the same session file rather than duplicating records.
+ const originalSave=window.saveMeetingRecord;
+ window.saveMeetingRecord=function(){if(!window.currentTranscript||!window.currentTranscript.length)return;const id=activeRecordId||(activeRecordId='meeting-'+(window.sessionStartedAt||Date.now()));const rec={id,title:$('meetingTitle')?.value||'Untitled meeting',date:new Date().toLocaleString(),createdAt:window.sessionStartedAt||new Date().toISOString(),duration:$('timer')?.textContent||'00:00',status:'Completed',transcript:window.currentTranscript.map(x=>({...x}))};const list=window.meetings||[];const at=list.findIndex(x=>x.id===id);if(at>=0)list[at]=rec;else list.unshift(rec);try{localStorage.setItem('meetmind_ai_workspace_v5',JSON.stringify({meetings:list,notes:window.notes||[]}));localStorage.setItem('meetmind_folder_index',JSON.stringify([{id,title:rec.title,date:rec.date,status:rec.status},...JSON.parse(localStorage.getItem('meetmind_folder_index')||'[]').filter(x=>x.id!==id)]))}catch(e){}if(typeof window.renderMeetings==='function')window.renderMeetings();if(typeof window.renderRecent==='function')window.renderRecent();if($('saveMeetingFeedback'))$('saveMeetingFeedback').textContent='Saved ✓';if(directoryHandle)queueSave(rec);activeRecordId=null;try{sessionStorage.removeItem('meetmind_live_draft')}catch(e){}};
+ const originalStart=window.startRecording;
+ if(typeof originalStart==='function'){window.startRecording=function(){activeRecordId='meeting-'+Date.now();return originalStart.apply(this,arguments)}}
+ document.addEventListener('DOMContentLoaded',()=>{const b=$('chooseTranscriptFolder'),r=$('reconnectTranscriptFolder');if(b)b.addEventListener('click',choose);if(r)r.addEventListener('click',reconnect);if(!supported){status('Browser fallback');message('For direct folder writing use desktop Chrome/Edge over HTTPS. Otherwise use browser storage and export/download.')}else{reconnect().catch(()=>{})}});
+ window.MeetMindFolderStorage={choose,reconnect,saveRecord};
+})();
+</script>
+</body></html>');w.document.close();w.focus();w.print();
 }
 function clearAllData(){
  if(!confirm('Delete all saved MeetMind meetings and notes from this browser?'))return;
