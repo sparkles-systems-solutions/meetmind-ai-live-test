@@ -329,8 +329,7 @@ function exportMinutes(type){
  const title=el('minutesTitle').value||'MeetMind Minutes',content=title+'\n\n'+out.innerText+'\n\nSinhala summary:\n'+(out.querySelector('#sinhalaMinutes')?.value||'');
  if(type==='txt'){const a=document.createElement('a');const u=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.href=u;a.download='MeetMind-Minutes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),1200);return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print or save as PDF.');return}
- w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'
-</body></html>');w.document.close();w.focus();w.print();
+ w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'</body></html>');w.document.close();w.focus();w.print();
 }
 function clearAllData(){
  if(!confirm('Delete all saved MeetMind meetings and notes from this browser?'))return;
