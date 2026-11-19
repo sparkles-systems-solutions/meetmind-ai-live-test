@@ -73,8 +73,8 @@
 
 <div class="panel" id="saveMeetingPanel">
  <div class="panelhead"><h3>Save this meeting</h3><span class="tag gray">On this device</span></div>
- <p class="small muted">Save the captured transcript and your notes in this browser's local storage.</p>
- <button class="btn primary" onclick="saveCurrentMeeting()">💾 Save meeting & transcript</button>
+ <p class="small muted">Meeting audio and transcript automatically save on this device when you press Stop.</p>
+ <button class="btn primary" onclick="saveCurrentMeeting()">💾 Save meeting now</button>
  <span class="small muted" id="saveMeetingFeedback" style="margin-left:10px"></span>
 </div>
     </div>
@@ -83,7 +83,7 @@
       <div class="field"><label>Speech recognition language</label><select id="languageMode"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="si-LK">Sinhala (Sri Lanka — if supported by browser)</option></select></div>
       <p class="small muted">For this live browser test, select one recognition language at a time. Mixed Sinhala-English auto-detection is not guaranteed.</p>
       <div class="field"><label>Speaker labels</label><select><option>Automatic labels (Speaker 01, 02...)</option><option>Single speaker</option></select></div>
-      <div class="checkline"><input type="checkbox" checked> Show Sinhala meaning</div><div class="checkline"><input type="checkbox" checked> Add timestamps</div><div class="checkline"><input type="checkbox"> Save audio locally (demo only)</div>
+      <div class="checkline"><input type="checkbox" checked> Show Sinhala meaning</div><div class="checkline"><input type="checkbox" checked> Add timestamps</div><div class="checkline"><input type="checkbox"> Save meeting audio locally</div>
      </div>
      <div class="panel"><div class="panelhead"><h3>Personal notes</h3><span class="muted small">Private</span></div><div class="field"><textarea id="quickNote" placeholder="Write a note while the meeting is in progress..."></textarea></div><button class="btn primary" onclick="saveNote()">＋ Save note</button><div id="noteFeedback" class="small muted" style="margin-top:9px"></div></div>
      <div class="panel"><div class="panelhead"><h3>Capture limitations</h3></div><p class="small muted">Live microphone transcription uses your browser speech-recognition service when supported. Internet may be required and audio may be processed by your browser provider. Computer/system audio capture and real AI translation are not included in this test.</p></div>
@@ -365,6 +365,58 @@ function exportMinutes(type){
 mmLoad();
 try{const saved=JSON.parse(localStorage.getItem('meetmind_current_transcript')||'[]');if(saved.length)currentTranscript=saved}catch(e){}
 renderMeetings();renderNotes();renderRecent();
+
+
+/* V04 continuous mic stream + actual audio capture + automatic local save */
+let mmMicStream=null,mmRecorder=null,mmChunks=[],mmRestartTimer=null;
+const MM_DB_NAME='meetmind_recordings_v4',MM_DB_STORE='audio';
+function mmDB(){return new Promise((ok,no)=>{const r=indexedDB.open(MM_DB_NAME,1);r.onupgradeneeded=()=>r.result.createObjectStore(MM_DB_STORE,{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
+async function mmSaveAudio(id,blob){const db=await mmDB();await new Promise((ok,no)=>{const t=db.transaction(MM_DB_STORE,'readwrite');t.objectStore(MM_DB_STORE).put({id,blob,type:blob.type,savedAt:new Date().toISOString()});t.oncomplete=ok;t.onerror=()=>no(t.error)});db.close()}
+function mmPersist(){try{localStorage.setItem(MM_STORE,JSON.stringify({meetings,notes}));return true}catch(e){toast('Browser storage full. Export or remove older data.');return false}}
+function mmLoad(){try{const d=JSON.parse(localStorage.getItem(MM_STORE)||'{}');if(Array.isArray(d.meetings))meetings=d.meetings;if(Array.isArray(d.notes))notes=d.notes}catch(e){}}
+function mmUI(active,status){document.getElementById('recordBtn').classList.toggle('recording',active);document.getElementById('recordStatus').textContent=status;document.getElementById('liveBadge').textContent=active?'LIVE · MIC ACTIVE':'STOPPED';document.getElementById('liveBadge').style.color=active?'#e45d69':'#9ba3b3'}
+function mmRenderTranscript(){const box=document.getElementById('transcript');box.innerHTML='';if(!currentTranscript.length){box.innerHTML='<div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Start a live microphone session to capture speech.</p></div>';return}currentTranscript.forEach((x,i)=>{const d=document.createElement('div');d.className='utterance';d.innerHTML='<div><span class="speaker">'+esc(x.speaker)+'</span><span class="time">'+esc(x.time)+'</span></div><p>'+esc(x.text)+'</p><div class="field" style="margin:7px 0 0"><label>Sinhala meaning / translation</label><textarea rows="2" placeholder="Enter Sinhala meaning...">'+esc(x.meaning||'')+'</textarea></div>';d.querySelector('textarea').addEventListener('input',e=>{currentTranscript[i].meaning=e.target.value;try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(_){}});box.appendChild(d)});box.scrollTop=box.scrollHeight}
+function addTranscript(line){currentTranscript.push({speaker:line[0]||'Speaker 01',text:line[1]||'',meaning:(line[2]||'').includes('not connected')?'':line[2]||'',time:document.getElementById('timer').textContent,language:(line[0]||'').includes('Sinhala')?'Sinhala':'English'});try{localStorage.setItem('meetmind_current_transcript',JSON.stringify(currentTranscript))}catch(e){}mmRenderTranscript()}
+function mmSaveMeeting(audioBlob){const title=(document.getElementById('meetingTitle').value||'Untitled meeting').trim(),id='mm-'+Date.now();const item={id,title,date:new Date().toLocaleString(),duration:document.getElementById('timer').textContent,status:'Completed',transcript:currentTranscript.map(x=>({...x})),audioSaved:false};meetings.unshift(item);mmPersist();if(audioBlob&&audioBlob.size){mmSaveAudio(id,audioBlob).then(()=>{item.audioSaved=true;mmPersist();toast('Meeting, transcript and audio saved on this device.')}).catch(e=>toast('Transcript saved; audio save failed: '+e.message))}else toast('Meeting and transcript saved on this device.');renderMeetings();renderRecent();const fb=document.getElementById('saveMeetingFeedback');if(fb)fb.textContent='Auto-saved ✓'}
+async function startRecording(){
+ if(recording)return;
+ if(!document.getElementById('consent').checked){toast('Confirm participant consent before recording.');return}
+ const source=document.getElementById('audioSource').value;
+ if(source==='demo'){currentTranscript=[];mmRenderTranscript();seconds=0;document.getElementById('timer').textContent='00:00';recording=true;mmUI(true,'Demo session running');timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);addTranscript(demoLines[demoIndex++%demoLines.length]);demoInterval=setInterval(()=>{if(recording)addTranscript(demoLines[demoIndex++%demoLines.length])},4500);return}
+ if(source!=='mic'){toast('This version supports microphone capture. System audio is not yet implemented.');return}
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('Speech recognition is unavailable in this browser. Use current Chrome.');return}
+ try{
+  document.getElementById('recordStatus').textContent='Requesting microphone permission…';
+  mmMicStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  if(!window.MediaRecorder)throw new Error('MediaRecorder is not supported in this browser.');
+  currentTranscript=[];mmChunks=[];seconds=0;document.getElementById('timer').textContent='00:00';mmRenderTranscript();
+  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(x=>MediaRecorder.isTypeSupported(x));
+  mmRecorder=new MediaRecorder(mmMicStream,mime?{mimeType:mime}:undefined);
+  mmRecorder.ondataavailable=e=>{if(e.data&&e.data.size)mmChunks.push(e.data)};
+  mmRecorder.onstop=()=>{const blob=new Blob(mmChunks,{type:mmRecorder?.mimeType||'audio/webm'});mmSaveMeeting(blob);if(mmMicStream){mmMicStream.getTracks().forEach(t=>t.stop());mmMicStream=null}mmRecorder=null};
+  mmRecorder.start(1000);
+  speechRecognition=new SR();speechRecognition.lang=document.getElementById('languageMode').value;speechRecognition.continuous=true;speechRecognition.interimResults=true;speechRecognition.maxAlternatives=1;shouldRestartRecognition=true;
+  speechRecognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i],t=r[0].transcript.trim();if(r.isFinal&&t)addTranscript([speechRecognition.lang.startsWith('si')?'Speaker 01 · Sinhala':'Speaker 01 · English',t,''])}};
+  speechRecognition.onerror=e=>{if(['not-allowed','service-not-allowed','audio-capture'].includes(e.error)){shouldRestartRecognition=false;toast('Speech recognition error: '+e.error+'. Audio recording remains active; press Stop to finish and save.')}};
+  speechRecognition.onend=()=>{if(shouldRestartRecognition&&recording){clearTimeout(mmRestartTimer);mmRestartTimer=setTimeout(()=>{if(shouldRestartRecognition&&recording&&speechRecognition){try{speechRecognition.start()}catch(e){}}},300)}};
+  speechRecognition.start();recording=true;mmUI(true,'Microphone active — continuous audio recording');timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);toast('Microphone active. It remains on until you press Stop.');
+ }catch(e){shouldRestartRecognition=false;if(speechRecognition){try{speechRecognition.stop()}catch(_){}speechRecognition=null}if(mmMicStream){mmMicStream.getTracks().forEach(t=>t.stop());mmMicStream=null}recording=false;mmUI(false,'Could not start microphone');toast('Could not start: '+e.message)}
+}
+function stopRecording(){
+ if(!recording&&!mmRecorder)return;recording=false;shouldRestartRecognition=false;clearTimeout(mmRestartTimer);clearInterval(timerInterval);timerInterval=null;clearInterval(demoInterval);demoInterval=null;
+ if(speechRecognition){try{speechRecognition.stop()}catch(e){}speechRecognition=null}
+ mmUI(false,'Finalizing and automatically saving…');
+ if(mmRecorder&&mmRecorder.state!=='inactive')mmRecorder.stop();else if(mmMicStream){mmMicStream.getTracks().forEach(t=>t.stop());mmMicStream=null;mmSaveMeeting(null)}
+ if(!mmRecorder&&currentTranscript.length)mmSaveMeeting(null);
+}
+document.getElementById('recordBtn').onclick=()=>recording?stopRecording():startRecording();
+function saveCurrentMeeting(){if(recording){toast('Press Stop first. The meeting auto-saves when recording finishes.');return}if(!currentTranscript.length){toast('No transcript to save.');return}mmSaveMeeting(null)}
+function saveNote(){const v=document.getElementById('quickNote').value.trim();if(!v){toast('Write a note first.');return}notes.unshift({type:'Personal note',text:v,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle').value||''});document.getElementById('quickNote').value='';document.getElementById('noteFeedback').textContent='Saved ✓';mmPersist();renderNotes();toast('Note saved on this device.')}
+function addBookmark(){notes.unshift({type:'Bookmark',text:'Bookmark at '+document.getElementById('timer').textContent,date:new Date().toLocaleString(),meetingTitle:document.getElementById('meetingTitle').value||''});mmPersist();renderNotes();toast('Bookmark saved.')}
+function renderMeetings(){const q=(document.getElementById('meetingSearch')?.value||'').toLowerCase(),f=document.getElementById('meetingFilter')?.value||'all',rows=meetings.filter(m=>(m.title||'').toLowerCase().includes(q)&&(f==='all'||m.status===f));document.getElementById('meetingTable').innerHTML=rows.length?rows.map(m=>'<tr><td><b>'+esc(m.title)+'</b></td><td>'+esc(m.date||'—')+'</td><td>'+esc(m.duration||'—')+'</td><td><span class="tag">'+esc(m.status||'Completed')+'</span></td><td><button class="btn secondary" onclick="openMeetingById(\\''+esc(m.id||'')+'\\')">Open</button></td></tr>').join(''):'<tr><td colspan="5" class="empty">No saved meetings.</td></tr>'}
+function openMeetingById(id){const m=meetings.find(x=>x.id===id);if(!m){toast('Meeting not found.');return}currentTranscript=(m.transcript||[]).map(x=>({...x}));document.getElementById('minutesTitle').value=m.title;document.getElementById('minutesInput').value=currentTranscript.map(x=>x.speaker+': '+x.text).join('\\n');showPage('minutes');generateMinutes()}
+function mmInitV4(){mmLoad();try{const d=JSON.parse(localStorage.getItem('meetmind_current_transcript')||'[]');if(d.length)currentTranscript=d}catch(e){}renderMeetings();renderNotes();renderRecent();mmRenderTranscript()}
+mmInitV4();
 
 </script>
 </body>
