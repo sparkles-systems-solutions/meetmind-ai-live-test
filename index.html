@@ -329,7 +329,26 @@ function exportMinutes(type){
  const title=el('minutesTitle').value||'MeetMind Minutes',content=title+'\n\n'+out.innerText+'\n\nSinhala summary:\n'+(out.querySelector('#sinhalaMinutes')?.value||'');
  if(type==='txt'){const a=document.createElement('a');const u=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.href=u;a.download='MeetMind-Minutes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),1200);return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print or save as PDF.');return}
- w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'<script id="meetmind-folder-storage">
+ w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:30px;line-height:1.6;white-space:pre-wrap}</style></head><body>'+esc(content)+'
+</body></html>');w.document.close();w.focus();w.print();
+}
+function clearAllData(){
+ if(!confirm('Delete all saved MeetMind meetings and notes from this browser?'))return;
+ meetings=[];notes=[];saveStore();renderMeetings();renderNotes();renderRecent();toast('Local test data cleared.');
+}
+function init(){
+ loadStore();
+ document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+ if(el('menuBtn'))el('menuBtn').addEventListener('click',()=>el('sidebar').classList.toggle('open'));
+ if(el('recordBtn'))el('recordBtn').addEventListener('click',()=>recording?stopRecording():startRecording());
+ renderMeetings();renderNotes();renderRecent();renderTranscript();
+ if(el('statMeetings'))el('statMeetings').textContent=String(meetings.length);
+}
+init();
+
+</script>
+
+<script id="meetmind-folder-storage">
 /* MeetMind AI: user-selected local transcript folder storage */
 (()=>{
  'use strict';
@@ -362,27 +381,10 @@ function exportMinutes(type){
  window.saveMeetingRecord=function(){if(!currentTranscript||!currentTranscript.length)return;const id=activeRecordId||(activeRecordId='meeting-'+(sessionStartedAt||Date.now()));const rec={id,title:$('meetingTitle')?.value||'Untitled meeting',date:new Date().toLocaleString(),createdAt:sessionStartedAt||new Date().toISOString(),duration:$('timer')?.textContent||'00:00',status:'Completed',transcript:currentTranscript.map(x=>({...x}))};const list=meetings||[];const at=list.findIndex(x=>x.id===id);if(at>=0)list[at]=rec;else list.unshift(rec);try{localStorage.setItem('meetmind_ai_workspace_v5',JSON.stringify({meetings:list,notes:notes||[]}));localStorage.setItem('meetmind_folder_index',JSON.stringify([{id,title:rec.title,date:rec.date,status:rec.status},...JSON.parse(localStorage.getItem('meetmind_folder_index')||'[]').filter(x=>x.id!==id)]))}catch(e){}if(typeof window.renderMeetings==='function')window.renderMeetings();if(typeof window.renderRecent==='function')window.renderRecent();if($('saveMeetingFeedback'))$('saveMeetingFeedback').textContent='Saved ✓';if(directoryHandle)queueSave(rec);activeRecordId=null;try{sessionStorage.removeItem('meetmind_live_draft')}catch(e){}};
  const originalStart=window.startRecording;
  if(typeof originalStart==='function'){window.startRecording=function(){activeRecordId='meeting-'+Date.now();return originalStart.apply(this,arguments)}}
- document.addEventListener('DOMContentLoaded',()=>{const b=$('chooseTranscriptFolder'),r=$('reconnectTranscriptFolder');if(b)b.addEventListener('click',choose);if(r)r.addEventListener('click',reconnect);if(!supported){status('Browser fallback');message('For direct folder writing use desktop Chrome/Edge over HTTPS. Otherwise use browser storage and export/download.')}else{reconnect().catch(()=>{})}});
+ function initFolderStorage(){const b=$('chooseTranscriptFolder'),r=$('reconnectTranscriptFolder');if(b&&!b.dataset.bound){b.dataset.bound='1';b.addEventListener('click',choose)}if(r&&!r.dataset.bound){r.dataset.bound='1';r.addEventListener('click',reconnect)}if(!supported){status('Browser fallback');message('For direct folder writing use desktop Chrome/Edge over HTTPS. Otherwise use browser storage and export/download.')}else{reconnect().catch(()=>{})}}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFolderStorage,{once:true});else initFolderStorage();
  window.MeetMindFolderStorage={choose,reconnect,saveRecord};
 })();
 </script>
-</body></html>');w.document.close();w.focus();w.print();
-}
-function clearAllData(){
- if(!confirm('Delete all saved MeetMind meetings and notes from this browser?'))return;
- meetings=[];notes=[];saveStore();renderMeetings();renderNotes();renderRecent();toast('Local test data cleared.');
-}
-function init(){
- loadStore();
- document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
- if(el('menuBtn'))el('menuBtn').addEventListener('click',()=>el('sidebar').classList.toggle('open'));
- if(el('recordBtn'))el('recordBtn').addEventListener('click',()=>recording?stopRecording():startRecording());
- renderMeetings();renderNotes();renderRecent();renderTranscript();
- if(el('statMeetings'))el('statMeetings').textContent=String(meetings.length);
-}
-init();
-
-</script>
-
 </body>
 </html>
