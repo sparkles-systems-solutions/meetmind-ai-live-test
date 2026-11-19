@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeetMind AI — Live Microphone Test</title>
+<style>
+:root{--bg:#f5f7fb;--panel:#fff;--ink:#172033;--muted:#778198;--line:#e8ecf3;--navy:#18233b;--purple:#6958e8;--purple2:#897cf2;--teal:#18a999;--soft:#f0efff;--green:#169b72;--amber:#e5a13a;--red:#dc6262;--shadow:0 12px 34px rgba(30,42,75,.07)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.app{min-height:100vh;display:grid;grid-template-columns:248px 1fr}.sidebar{background:var(--navy);color:#fff;padding:25px 16px;display:flex;flex-direction:column;gap:28px}.brand{display:flex;align-items:center;gap:11px;padding:0 9px}.logo{width:39px;height:39px;border-radius:13px;background:linear-gradient(135deg,#9a8cff,#6354df);display:grid;place-items:center;font-size:21px;box-shadow:0 7px 20px #6658e955}.brand b{font-size:17px;letter-spacing:.2px}.brand small{display:block;color:#aeb8d0;font-size:10px;letter-spacing:1.6px;margin-top:1px}.navlabel{font-size:10px;color:#8591ad;letter-spacing:1.5px;padding:0 12px;margin-bottom:8px}.nav{display:grid;gap:5px}.nav button{display:flex;align-items:center;gap:13px;color:#c6cde0;background:transparent;padding:12px;border-radius:11px;text-align:left;width:100%;transition:.2s}.nav button:hover,.nav button.active{background:#ffffff17;color:#fff}.nav .ico{width:20px;text-align:center;font-size:16px}.sidebottom{margin-top:auto;border:1px solid #ffffff20;border-radius:14px;padding:14px;color:#c4cbe0;font-size:12px}.sidebottom b{display:block;color:#fff;margin-bottom:5px}.main{min-width:0}.topbar{height:76px;background:#ffffffd9;backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px;position:sticky;top:0;z-index:5}.crumb{color:var(--muted);font-size:13px}.crumb b{color:var(--ink)}.topright{display:flex;align-items:center;gap:15px}.pill{padding:7px 11px;border-radius:20px;background:#eaf8f3;color:#138565;font-size:11px;font-weight:700}.avatar{width:35px;height:35px;border-radius:50%;background:#e9e6ff;color:#5d50cf;display:grid;place-items:center;font-weight:800}.content{padding:30px 34px 50px;max-width:1600px;margin:auto}.page{display:none}.page.active{display:block}.heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:25px}.heading h1{font-size:25px;margin:0 0 5px;letter-spacing:-.7px}.heading p{margin:0;color:var(--muted)}.btn{padding:10px 15px;border-radius:10px;font-weight:650;display:inline-flex;align-items:center;gap:8px;transition:.2s}.primary{background:var(--purple);color:#fff;box-shadow:0 6px 15px #6958e833}.primary:hover{background:#5848d5;transform:translateY(-1px)}.secondary{background:#f1f2f8;color:#38435a}.outline{background:#fff;border:1px solid var(--line);color:#39445b}.danger{background:#fff0f0;color:#bd4a4a}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:22px}.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.stat{padding:18px}.stathead{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.staticon{width:32px;height:32px;border-radius:10px;background:var(--soft);display:grid;place-items:center}.stat strong{display:block;font-size:25px;margin:9px 0 2px;letter-spacing:-.8px}.trend{font-size:11px;color:var(--green)}.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}.panel{padding:20px;margin-bottom:18px}.panelhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.panelhead h3{margin:0;font-size:15px}.muted{color:var(--muted)}.small{font-size:12px}.welcome{background:linear-gradient(115deg,#262f54,#6255c9);color:white;border-radius:18px;padding:25px 27px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;overflow:hidden;position:relative}.welcome:after{content:"";position:absolute;width:240px;height:240px;border:1px solid #ffffff20;border-radius:50%;right:13%;top:-135px;box-shadow:0 0 0 35px #ffffff08,0 0 0 70px #ffffff06}.welcome h2{font-size:21px;margin:0 0 6px}.welcome p{margin:0;color:#d7d8f6}.welcome .btn{background:white;color:#4e45b6;position:relative;z-index:1}.meetingrow{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--line)}.meetingrow:last-child{border:0}.meetingicon{width:40px;height:40px;border-radius:12px;background:#f0efff;display:grid;place-items:center;font-size:18px}.meetinginfo{flex:1;min-width:0}.meetinginfo b{display:block;font-size:13px}.meetinginfo span{color:var(--muted);font-size:11px}.tag{font-size:10px;padding:5px 8px;border-radius:20px;background:#eff8f5;color:#168566;font-weight:700}.tag.gray{background:#f0f2f6;color:#748096}.tag.amber{background:#fff6e8;color:#b47b21}.activity{display:grid;gap:13px}.activityitem{display:flex;gap:10px;align-items:flex-start;font-size:12px}.dot{width:8px;height:8px;border-radius:50%;background:var(--purple);margin-top:5px;flex:none}.recordlayout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr);gap:18px}.recordhero{background:linear-gradient(135deg,#252e51,#544ab0);border-radius:17px;padding:22px;color:#fff;margin-bottom:17px}.recordhero h2{margin:0 0 5px}.recordhero p{margin:0;color:#d8d9f4}.recordcontrols{display:flex;align-items:center;gap:12px;margin-top:20px}.recordbtn{width:54px;height:54px;border-radius:50%;background:#fff;color:#e05e69;font-size:21px;box-shadow:0 5px 18px #0002}.recordbtn.recording{background:#ffe9eb;animation:pulse 1.5s infinite}@keyframes pulse{50%{box-shadow:0 0 0 10px #ffb5bf33}}.timer{font-size:25px;font-variant-numeric:tabular-nums;font-weight:700}.wave{height:54px;display:flex;align-items:center;gap:3px;margin:14px 0}.wave i{width:4px;border-radius:4px;background:#9a91ff;height:var(--h);opacity:.85}.transcript{height:365px;overflow:auto;padding-right:5px}.utterance{padding:12px 0;border-bottom:1px solid var(--line)}.speaker{font-size:11px;font-weight:800;color:#6558dc}.time{font-size:10px;color:#9aa2b2;margin-left:7px}.utterance p{margin:5px 0 3px;font-size:13px}.translation{color:#168c78;background:#effaf7;padding:7px 9px;border-radius:8px;font-size:12px}.livebadge{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#dc646d;font-weight:800}.livebadge:before{content:"";width:7px;height:7px;border-radius:50%;background:#e45d69}.field{display:grid;gap:6px;margin-bottom:14px}.field label{font-size:12px;color:#606b80;font-weight:700}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:9px;padding:11px 12px;outline:none;color:var(--ink)}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--purple2);box-shadow:0 0 0 3px #897cf21c}.field textarea{min-height:90px;resize:vertical}.checkline{display:flex;gap:9px;align-items:center;color:#606b80;font-size:12px;margin:10px 0}.checkline input{accent-color:var(--purple)}.summarygrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.summarybox{padding:15px;border-radius:12px;background:#f8f9fc;border:1px solid var(--line)}.summarybox h4{margin:0 0 10px;font-size:13px}.summarybox ul{margin:0;padding-left:17px;color:#58647a;font-size:12px}.summarybox li{margin:6px 0}.toolbar{display:flex;gap:9px;flex-wrap:wrap}.search{max-width:270px;width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:#fff}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:570px}th,td{text-align:left;padding:13px 11px;border-bottom:1px solid var(--line);font-size:12px}th{color:#8a93a5;font-weight:700;background:#fafbfe}td b{font-size:12px}.settingsgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.toggle{width:38px;height:22px;border-radius:20px;background:#d8dce6;position:relative;display:inline-block;vertical-align:middle;cursor:pointer}.toggle:after{content:"";width:16px;height:16px;background:white;border-radius:50%;position:absolute;left:3px;top:3px;transition:.2s}.toggle.on{background:var(--purple)}.toggle.on:after{left:19px}.toast{position:fixed;right:25px;bottom:25px;background:#202943;color:#fff;padding:13px 17px;border-radius:11px;box-shadow:var(--shadow);opacity:0;transform:translateY(12px);transition:.25s;z-index:20;pointer-events:none}.toast.show{opacity:1;transform:translateY(0)}.empty{text-align:center;padding:38px;color:var(--muted)}.empty .big{font-size:32px;margin-bottom:8px}.footer{text-align:center;color:#9aa2b2;font-size:11px;padding:20px}.mobilemenu{display:none}
+@media(max-width:1050px){.app{grid-template-columns:210px 1fr}.cards{grid-template-columns:repeat(2,1fr)}.grid2,.recordlayout{grid-template-columns:1fr}}
+@media(max-width:720px){.app{display:block}.sidebar{position:fixed;z-index:10;left:-260px;top:0;bottom:0;width:248px;transition:.25s}.sidebar.open{left:0}.mobilemenu{display:inline-flex}.topbar{padding:0 16px;height:65px}.content{padding:22px 15px 35px}.heading{align-items:flex-start;flex-direction:column}.cards{gap:9px}.stat{padding:13px}.stat strong{font-size:21px}.welcome{padding:20px;align-items:flex-start;gap:15px;flex-direction:column}.settingsgrid,.summarygrid{grid-template-columns:1fr}.topright .pill{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+ <div class="brand"><div class="logo">✦</div><div><b>MeetMind AI</b><small>MEETING INTELLIGENCE</small></div></div>
+ <div><div class="navlabel">WORKSPACE</div><nav class="nav">
+  <button class="active" data-page="overview"><span class="ico">▦</span>Overview</button>
+  <button data-page="live"><span class="ico">◉</span>Live Meeting</button>
+  <button data-page="meetings"><span class="ico">▤</span>My Meetings</button>
+  <button data-page="minutes"><span class="ico">✎</span>AI Minutes</button>
+ </nav></div>
+ <div><div class="navlabel">PREFERENCES</div><nav class="nav">
+  <button data-page="notes"><span class="ico">✧</span>Notes & Bookmarks</button>
+  <button data-page="settings"><span class="ico">⚙</span>Settings</button>
+  <button data-page="admin"><span class="ico">♙</span>Admin Console</button>
+ </nav></div>
+ <div class="sidebottom"><b>🔒 Your privacy matters</b>Local-first demo. Test data stays in this browser. No paid API is connected.</div>
+</aside>
+<main class="main">
+ <header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="btn secondary mobilemenu" id="menuBtn">☰</button><div class="crumb">Workspace / <b id="crumb">Overview</b></div></div><div class="topright"><span class="pill">● LOCAL DEMO MODE</span><span class="muted small">Sinhala + English</span><div class="avatar">U</div></div></header>
+ <div class="content">
+  <section class="page active" id="overview">
+   <div class="welcome"><div><div class="small" style="color:#c8c5ff;font-weight:700;letter-spacing:1px">YOUR MEETING, UNDERSTOOD</div><h2>Good day! Ready for a smarter meeting?</h2><p>Capture conversations, understand them in Sinhala, and turn them into clear actions.</p></div><button class="btn" onclick="showPage('live')">＋ Start a meeting</button></div>
+   <div class="cards">
+    <div class="stat"><div class="stathead">Total meetings <span class="staticon">▤</span></div><strong id="statMeetings">12</strong><span class="trend">↑ Your workspace</span></div>
+    <div class="stat"><div class="stathead">Hours captured <span class="staticon">◷</span></div><strong>08.4</strong><span class="muted small">Across all sessions</span></div>
+    <div class="stat"><div class="stathead">Action items <span class="staticon">✓</span></div><strong>26</strong><span class="muted small">From meeting minutes</span></div>
+    <div class="stat"><div class="stathead">Languages <span class="staticon">文</span></div><strong>02</strong><span class="muted small">English · සිංහල</span></div>
+   </div>
+   <div class="grid2">
+    <div class="panel"><div class="panelhead"><h3>Recent meetings</h3><button class="btn secondary" onclick="showPage('meetings')">View all →</button></div><div id="recentList"></div></div>
+    <div class="panel"><div class="panelhead"><h3>Quick actions</h3><span class="muted small">Get started</span></div>
+     <div class="meetingrow"><div class="meetingicon">🎙</div><div class="meetinginfo"><b>Start live transcription</b><span>Capture mic or browser audio</span></div><button class="btn secondary" onclick="showPage('live')">Open</button></div>
+     <div class="meetingrow"><div class="meetingicon">📝</div><div class="meetinginfo"><b>Create meeting minutes</b><span>Summaries and action points</span></div><button class="btn secondary" onclick="showPage('minutes')">Open</button></div>
+     <div class="meetingrow"><div class="meetingicon">🔖</div><div class="meetinginfo"><b>Review saved notes</b><span>Bookmarks and highlights</span></div><button class="btn secondary" onclick="showPage('notes')">Open</button></div>
+    </div>
+   </div>
+   <div class="panel"><div class="panelhead"><h3>How MeetMind works</h3><span class="muted small">Your meeting workflow</span></div><div class="cards" style="margin:0;grid-template-columns:repeat(4,1fr)">
+    <div><div class="meetingicon">🎧</div><b>1. Capture</b><p class="muted small">Microphone or supported browser audio.</p></div>
+    <div><div class="meetingicon">💬</div><b>2. Understand</b><p class="muted small">English transcript with Sinhala meaning.</p></div>
+    <div><div class="meetingicon">✨</div><b>3. Summarise</b><p class="muted small">Key points, decisions and actions.</p></div>
+    <div><div class="meetingicon">📄</div><b>4. Share</b><p class="muted small">Export bilingual minutes.</p></div>
+   </div></div>
+  </section>
+
+  <section class="page" id="live">
+   <div class="heading"><div><h1>Live Meeting</h1><p>Capture the conversation and follow it in English and Sinhala.</p></div><span class="tag amber">DEMO SIMULATION</span></div>
+   <div class="recordlayout">
+    <div>
+     <div class="recordhero"><h2>Meeting capture</h2><p>Choose your audio source and begin a test session.</p>
+      <div class="field" style="margin-top:17px"><label style="color:#e0defe">Meeting title</label><input id="meetingTitle" value="Weekly Operations Meeting" style="background:#ffffff16;border-color:#ffffff2c;color:white"></div>
+      <div class="field"><label style="color:#e0defe">Audio source</label><select id="audioSource" style="background:#ffffff16;border-color:#ffffff2c;color:white"><option value="mic">Live microphone (browser speech recognition)</option><option value="screen">Computer / browser audio (not available in this test)</option><option value="both">Microphone + browser audio (not available in this test)</option><option value="demo">Demo mode — simulated transcript</option></select></div>
+      <label class="checkline" style="color:#e0defe"><input type="checkbox" id="consent" checked> I have informed participants and received recording consent.</label>
+      <div class="recordcontrols"><button class="recordbtn" id="recordBtn" title="Start or stop recording">●</button><div><div class="timer" id="timer">00:00</div><div class="small" style="color:#d5d3f4" id="recordStatus">Ready to start</div></div><div style="margin-left:auto"><button class="btn" style="background:#ffffff20;color:white" onclick="addBookmark()">🔖 Bookmark</button></div></div>
+      <div class="wave" id="wave"></div>
+     </div>
+     <div class="panel"><div class="panelhead"><h3>Live transcript</h3><span class="livebadge" id="liveBadge" style="color:#9ba3b3">NOT RECORDING</span></div><div class="transcript" id="transcript">
+      <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Choose Live microphone to test real speech recognition, or Demo mode for sample content.</p></div>
+     </div></div>
+    </div>
+    <div>
+     <div class="panel"><div class="panelhead"><h3>Meeting insights</h3><span class="tag gray">Live preview</span></div>
+      <div class="field"><label>Speech recognition language</label><select id="languageMode"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="si-LK">Sinhala (Sri Lanka — if supported by browser)</option></select></div>
+      <p class="small muted">For this live browser test, select one recognition language at a time. Mixed Sinhala-English auto-detection is not guaranteed.</p>
+      <div class="field"><label>Speaker labels</label><select><option>Automatic labels (Speaker 01, 02...)</option><option>Single speaker</option></select></div>
+      <div class="checkline"><input type="checkbox" checked> Show Sinhala meaning</div><div class="checkline"><input type="checkbox" checked> Add timestamps</div><div class="checkline"><input type="checkbox"> Save audio locally (demo only)</div>
+     </div>
+     <div class="panel"><div class="panelhead"><h3>Personal notes</h3><span class="muted small">Private</span></div><div class="field"><textarea id="quickNote" placeholder="Write a note while the meeting is in progress..."></textarea></div><button class="btn primary" onclick="saveNote()">＋ Save note</button><div id="noteFeedback" class="small muted" style="margin-top:9px"></div></div>
+     <div class="panel"><div class="panelhead"><h3>Capture limitations</h3></div><p class="small muted">Live microphone transcription uses your browser speech-recognition service when supported. Internet may be required and audio may be processed by your browser provider. Computer/system audio capture and real AI translation are not included in this test.</p></div>
+    </div>
+   </div>
+  </section>
+
+  <section class="page" id="meetings">
+   <div class="heading"><div><h1>My Meetings</h1><p>All your sessions, notes and meeting records in one place.</p></div><button class="btn primary" onclick="showPage('live')">＋ New meeting</button></div>
+   <div class="panel"><div class="panelhead"><input class="search" id="meetingSearch" placeholder="Search meetings..." oninput="renderMeetings()"><select id="meetingFilter" class="search" style="width:150px" onchange="renderMeetings()"><option value="all">All meetings</option><option value="Completed">Completed</option><option value="Draft">Draft</option></select></div><div class="tablewrap"><table><thead><tr><th>MEETING</th><th>DATE</th><th>DURATION</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="meetingTable"></tbody></table></div></div>
+  </section>
+
+  <section class="page" id="minutes">
+   <div class="heading"><div><h1>AI Meeting Minutes</h1><p>Turn a transcript into clear, bilingual meeting minutes.</p></div><div class="toolbar"><button class="btn outline" onclick="exportMinutes('txt')">↓ TXT</button><button class="btn primary" onclick="exportMinutes('html')">↓ Print / PDF</button></div></div>
+   <div class="panel"><div class="field"><label>Meeting title</label><input id="minutesTitle" value="Weekly Operations Meeting"></div><div class="field"><label>Paste meeting transcript</label><textarea id="minutesInput" style="min-height:130px" placeholder="Paste your meeting transcript here...">The team discussed the new system rollout. The IT team will complete user testing by Friday. Finance will confirm the budget. We agreed to conduct staff training next Monday. Any technical issues should be reported to the project coordinator.</textarea></div><div class="toolbar"><button class="btn primary" onclick="generateMinutes()">✨ Generate demo minutes</button><span class="muted small" style="align-self:center">Uses sample rule-based output only. No external AI service.</span></div></div>
+   <div class="panel" id="minutesOutput"><div class="empty"><div class="big">📝</div><b>Your meeting minutes will appear here</b><p class="small">Generate a demo summary from the transcript above.</p></div></div>
+  </section>
+
+  <section class="page" id="notes">
+   <div class="heading"><div><h1>Notes & Bookmarks</h1><p>Keep important moments and personal notes close at hand.</p></div></div>
+   <div class="panel"><div class="panelhead"><h3>Saved notes</h3><span class="tag gray" id="noteCount">0 items</span></div><div id="notesList"><div class="empty">No notes yet. Add notes from a live meeting.</div></div></div>
+  </section>
+
+  <section class="page" id="settings">
+   <div class="heading"><div><h1>Settings</h1><p>Configure your language, privacy and local workspace.</p></div><button class="btn primary" onclick="toast('Settings saved for this demo session.')">Save settings</button></div>
+   <div class="settingsgrid">
+    <div class="panel"><div class="panelhead"><h3>Language & display</h3></div><div class="field"><label>Application language</label><select><option>English</option><option>සිංහල</option></select></div><div class="field"><label>Translation preference</label><select><option>English transcript + Sinhala meaning</option><option>Sinhala transcript + English meaning</option><option>Show both equally</option></select></div><div class="field"><label>Time format</label><select><option>24-hour</option><option>12-hour</option></select></div></div>
+    <div class="panel"><div class="panelhead"><h3>Privacy & storage</h3><span class="tag">Local-first</span></div><div class="checkline"><input type="checkbox" checked> Ask consent before recording</div><div class="checkline"><input type="checkbox" checked> Keep recordings on this device</div><div class="checkline"><input type="checkbox"> Enable optional cloud sync (disabled)</div><div class="checkline"><input type="checkbox" checked> Do not use meeting content for model training</div><p class="small muted">Cloud sync is not connected in this prototype. No data is sent to a server.</p></div>
+    <div class="panel"><div class="panelhead"><h3>Audio preferences</h3></div><div class="field"><label>Input device</label><select><option>System default microphone</option><option>External microphone</option></select></div><div class="field"><label>Transcript detail</label><select><option>Full transcript</option><option>Summary only</option></select></div></div>
+    <div class="panel"><div class="panelhead"><h3>Data management</h3></div><p class="small muted">This UI prototype keeps temporary test data in browser memory only. Refreshing the page may reset it.</p><button class="btn danger" onclick="if(confirm('Clear demo notes and meeting records?')){notes=[];renderNotes();toast('Demo notes cleared.')}">Clear demo notes</button></div>
+   </div>
+  </section>
+
+  <section class="page" id="admin">
+   <div class="heading"><div><h1>Admin Console</h1><p>Prototype view for workspace administration and privacy oversight.</p></div><span class="tag amber">DEMO ONLY</span></div>
+   <div class="cards"><div class="stat"><div class="stathead">Demo users <span class="staticon">♙</span></div><strong>08</strong><span class="muted small">Sample accounts</span></div><div class="stat"><div class="stathead">Workspaces <span class="staticon">▦</span></div><strong>02</strong><span class="muted small">Sample data</span></div><div class="stat"><div class="stathead">Storage used <span class="staticon">▤</span></div><strong>1.2 GB</strong><span class="muted small">Illustrative only</span></div><div class="stat"><div class="stathead">System status <span class="staticon">✓</span></div><strong style="font-size:19px;color:var(--green)">Local demo</strong><span class="muted small">No backend connected</span></div></div>
+   <div class="panel"><div class="panelhead"><h3>Sample user management</h3><button class="btn outline" onclick="toast('User creation is not connected in this UI prototype.')">＋ Add user</button></div><div class="tablewrap"><table><thead><tr><th>USER</th><th>ROLE</th><th>STATUS</th><th>LAST ACTIVE</th><th>ACCESS</th></tr></thead><tbody><tr><td><b>Demo Administrator</b><br><span class="muted">admin@example.test</span></td><td>Admin</td><td><span class="tag">Active</span></td><td>Today</td><td>Full</td></tr><tr><td><b>Demo Member 01</b><br><span class="muted">member01@example.test</span></td><td>Member</td><td><span class="tag">Active</span></td><td>Yesterday</td><td>Standard</td></tr><tr><td><b>Demo Member 02</b><br><span class="muted">member02@example.test</span></td><td>Member</td><td><span class="tag gray">Invited</span></td><td>—</td><td>Pending</td></tr></tbody></table></div></div>
+   <div class="panel"><div class="panelhead"><h3>Security checklist</h3></div><div class="checkline">✓ Recording consent notice</div><div class="checkline">✓ Local-first storage intention</div><div class="checkline">○ Authentication and role enforcement — not implemented</div><div class="checkline">○ Audit log backend — not implemented</div><div class="checkline">○ Encrypted file storage — not implemented</div></div>
+  </section>
+  <div class="footer">MeetMind AI · Live Microphone Test · Browser speech recognition · No API key</div>
+ </div>
+</main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const pages=['overview','live','meetings','minutes','notes','settings','admin'];
+const names={overview:'Overview',live:'Live Meeting',meetings:'My Meetings',minutes:'AI Minutes',notes:'Notes & Bookmarks',settings:'Settings',admin:'Admin Console'};
+let meetings=[
+ {title:'Weekly Operations Meeting',date:'19 Nov 2026',duration:'42 min',status:'Completed'},
+ {title:'IT Project Status Review',date:'18 Nov 2026',duration:'35 min',status:'Completed'},
+ {title:'Finance & Budget Discussion',date:'17 Nov 2026',duration:'28 min',status:'Completed'},
+ {title:'Staff Training Planning',date:'15 Nov 2026',duration:'—',status:'Draft'}
+];
+let notes=[],recording=false,seconds=0,timerInterval=null,demoInterval=null,demoIndex=0;
+const demoLines=[
+ ['Speaker 01','We need to complete the system testing by Friday.','සිකුරාදාට පෙර අපි system testing අවසන් කළ යුතුයි.'],
+ ['Speaker 02','The finance team will confirm the budget tomorrow.','Finance team එක හෙට budget එක තහවුරු කරයි.'],
+ ['Speaker 01','Let us schedule the staff training for next Monday.','Staff training එක ලබන සඳුදාට සැලසුම් කරමු.'],
+ ['Speaker 03','Please share the final report with all department heads.','අවසාන වාර්තාව සියලුම අංශ ප්‍රධානීන් සමඟ බෙදාගන්න.'],
+ ['Speaker 02','Any blockers should be reported to the project coordinator.','බාධාවක් තිබේ නම් project coordinator වෙත දැනුම් දෙන්න.']
+];
+function showPage(id){pages.forEach(p=>document.getElementById(p).classList.toggle('active',p===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));document.getElementById('crumb').textContent=names[id];document.getElementById('sidebar').classList.remove('open');if(id==='meetings')renderMeetings();if(id==='notes')renderNotes();}
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+document.getElementById('menuBtn').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+function toast(msg){let t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),2600)}
+function renderRecent(){document.getElementById('recentList').innerHTML=meetings.slice(0,3).map(m=>`<div class="meetingrow"><div class="meetingicon">📋</div><div class="meetinginfo"><b>${esc(m.title)}</b><span>${m.date} · ${m.duration}</span></div><span class="tag ${m.status==='Draft'?'amber':''}">${m.status}</span></div>`).join('')}
+function renderMeetings(){let q=(document.getElementById('meetingSearch')?.value||'').toLowerCase(),f=document.getElementById('meetingFilter')?.value||'all';let rows=meetings.filter(m=>m.title.toLowerCase().includes(q)&&(f==='all'||m.status===f));document.getElementById('meetingTable').innerHTML=rows.length?rows.map((m,i)=>`<tr><td><b>${esc(m.title)}</b></td><td>${m.date}</td><td>${m.duration}</td><td><span class="tag ${m.status==='Draft'?'amber':''}">${m.status}</span></td><td><button class="btn secondary" onclick="openMeeting(${meetings.indexOf(m)})">Open</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">No matching meetings found.</td></tr>'}
+function openMeeting(i){document.getElementById('minutesTitle').value=meetings[i].title;showPage('minutes');toast('Meeting selected. Add or review its transcript.')}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function addTranscript(line){let box=document.getElementById('transcript');if(box.querySelector('.empty'))box.innerHTML='';let d=document.createElement('div');d.className='utterance';d.innerHTML=`<div><span class="speaker">${esc(line[0])}</span><span class="time">${document.getElementById('timer').textContent}</span></div><p>${esc(line[1])}</p><div class="translation">${esc(line[2])}</div>`;box.appendChild(d);box.scrollTop=box.scrollHeight}
+let speechRecognition = null;
+let shouldRestartRecognition = false;
+function startRecording(){
+ if(!document.getElementById('consent').checked){toast('Please confirm participant consent before recording.');return}
+ const source=document.getElementById('audioSource').value;
+ if(source==='demo'){
+   recording=true;
+   document.getElementById('recordBtn').classList.add('recording');
+   document.getElementById('recordStatus').textContent='Demo session running';
+   document.getElementById('liveBadge').textContent='LIVE DEMO';
+   document.getElementById('liveBadge').style.color='#e45d69';
+   timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);
+   addTranscript(demoLines[demoIndex%demoLines.length]);demoIndex++;
+   demoInterval=setInterval(()=>{if(recording){addTranscript(demoLines[demoIndex%demoLines.length]);demoIndex++}},4500);
+   toast('Demo meeting started.');
+   return;
+ }
+ if(source!=='mic'){toast('This test version supports live microphone only. Choose Live microphone or Demo mode.');return}
+ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SpeechRecognition){toast('Live speech recognition is not supported in this browser. Try the latest Google Chrome.');return}
+ try{
+   speechRecognition=new SpeechRecognition();
+   speechRecognition.lang=document.getElementById('languageMode').value;
+   speechRecognition.continuous=true;
+   speechRecognition.interimResults=true;
+   speechRecognition.maxAlternatives=1;
+   shouldRestartRecognition=true;
+   speechRecognition.onstart=()=>{
+     recording=true;
+     document.getElementById('recordBtn').classList.add('recording');
+     document.getElementById('recordStatus').textContent='Listening to microphone';
+     document.getElementById('liveBadge').textContent='LIVE MICROPHONE';
+     document.getElementById('liveBadge').style.color='#e45d69';
+     if(!timerInterval)timerInterval=setInterval(()=>{seconds++;document.getElementById('timer').textContent=fmt(seconds)},1000);
+     toast('Microphone listening started.');
+   };
+   speechRecognition.onresult=(event)=>{
+     let box=document.getElementById('transcript');
+     if(box.querySelector('.empty'))box.innerHTML='';
+     for(let i=event.resultIndex;i<event.results.length;i++){
+       const result=event.results[i], text=result[0].transcript.trim();
+       if(!text)continue;
+       if(result.isFinal){
+         const lang=speechRecognition.lang.startsWith('si')?'Sinhala':'English';
+         addTranscript([lang==='Sinhala'?'Speaker 01 · Sinhala':'Speaker 01 · English',text,lang==='Sinhala'?'සිංහල හඳුනාගත් පෙළ':'Sinhala translation is not connected in this HTML test.']);
+       }else{
+         let interim=document.getElementById('interimLine');
+         if(!interim){interim=document.createElement('div');interim.id='interimLine';interim.className='utterance';box.appendChild(interim)}
+         interim.innerHTML='<span class="speaker">Listening…</span><p>'+esc(text)+'</p><span class="muted small">Interim result</span>';
+         box.scrollTop=box.scrollHeight;
+       }
+     }
+   };
+   speechRecognition.onerror=(event)=>{
+     if(event.error==='not-allowed'||event.error==='service-not-allowed'){
+       shouldRestartRecognition=false;stopRecording();toast('Microphone permission was denied. Allow microphone access for Chrome and try again.');
+     }else if(event.error==='no-speech'){
+       document.getElementById('recordStatus').textContent='Listening… speak near the microphone';
+     }else{
+       document.getElementById('recordStatus').textContent='Speech recognition issue: '+event.error;
+       toast('Speech recognition issue: '+event.error);
+     }
+   };
+   speechRecognition.onend=()=>{
+     if(shouldRestartRecognition && recording){
+       try{speechRecognition.start()}catch(e){}
+     }
+   };
+   speechRecognition.start();
+ }catch(e){toast('Could not start microphone recognition: '+e.message)}
+}
+function stopRecording(){
+ shouldRestartRecognition=false;
+ recording=false;
+ clearInterval(timerInterval);timerInterval=null;
+ clearInterval(demoInterval);demoInterval=null;
+ if(speechRecognition){try{speechRecognition.stop()}catch(e){}speechRecognition=null}
+ document.getElementById('recordBtn').classList.remove('recording');
+ document.getElementById('recordStatus').textContent='Session stopped';
+ document.getElementById('liveBadge').textContent='STOPPED';
+ document.getElementById('liveBadge').style.color='#9ba3b3';
+ toast('Meeting session stopped.');
+}
+document.getElementById('recordBtn').onclick=()=>recording?stopRecording():startRecording();
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function addBookmark(){let txt='Bookmark at '+document.getElementById('timer').textContent;notes.unshift({type:'Bookmark',text:txt,date:'Today'});renderNotes();toast('Bookmark saved.')}
+function saveNote(){let v=document.getElementById('quickNote').value.trim();if(!v){toast('Please write a note first.');return}notes.unshift({type:'Personal note',text:v,date:'Today'});document.getElementById('quickNote').value='';document.getElementById('noteFeedback').textContent='Saved to this demo session.';renderNotes();toast('Note saved.')}
+function renderNotes(){document.getElementById('noteCount').textContent=notes.length+' items';let el=document.getElementById('notesList');el.innerHTML=notes.length?notes.map((n,i)=>`<div class="meetingrow"><div class="meetingicon">${n.type==='Bookmark'?'🔖':'✎'}</div><div class="meetinginfo"><b>${esc(n.type)}</b><span>${esc(n.date)} · ${esc(n.text)}</span></div><button class="btn danger" onclick="deleteNote(${i})">Delete</button></div>`).join(''):'<div class="empty">No notes yet. Add notes from a live meeting.</div>'}
+function deleteNote(i){notes.splice(i,1);renderNotes()}
+function generateMinutes(){let raw=document.getElementById('minutesInput').value.trim();if(!raw){toast('Paste a transcript first.');return}let sentences=raw.split(/(?<=[.!?])\s+/).filter(Boolean);let points=sentences.slice(0,5);let out=document.getElementById('minutesOutput');out.innerHTML=`<div class="panelhead"><div><span class="tag">GENERATED DEMO</span><h2 style="margin:10px 0 3px">${esc(document.getElementById('minutesTitle').value)}</h2><span class="muted small">19 November 2026 · Bilingual meeting minutes</span></div></div><div class="summarygrid"><div class="summarybox"><h4>🇬🇧 English summary</h4><p class="small">The meeting covered project progress, testing, budget confirmation and staff training. The team agreed on follow-up responsibilities and reporting of technical issues.</p></div><div class="summarybox"><h4>🇱🇰 සිංහල සාරාංශය</h4><p class="small">මෙම රැස්වීමේදී ව්‍යාපෘතියේ ප්‍රගතිය, පරීක්ෂණ, අයවැය තහවුරු කිරීම සහ කාර්ය මණ්ඩල පුහුණුව පිළිබඳ සාකච්ඡා කරන ලදී. ඉදිරි ක්‍රියාමාර්ග සහ වගකීම් පිළිබඳ එකඟතාවයකට පැමිණියේය.</p></div><div class="summarybox"><h4>Key discussion points</h4><ul>${points.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><div class="summarybox"><h4>ප්‍රධාන කරුණු</h4><ul><li>System testing සිකුරාදාට පෙර අවසන් කිරීම.</li><li>Finance team එක අයවැය තහවුරු කිරීම.</li><li>Staff training සඳහා දිනයක් නියම කිරීම.</li></ul></div><div class="summarybox"><h4>Decisions</h4><ul><li>Staff training will be planned for next Monday.</li><li>Final report will be shared with department heads.</li></ul></div><div class="summarybox"><h4>Action items</h4><ul><li>IT Team — Complete user testing by Friday.</li><li>Finance — Confirm the budget tomorrow.</li><li>Project Coordinator — Collect and track reported issues.</li></ul></div></div><p class="small muted" style="margin-top:15px">Note: This is a rule-based sample output for UI testing, not a verified AI-generated record. Review all details before using as official minutes.</p>`;toast('Demo minutes generated.')}
+function exportMinutes(type){let el=document.getElementById('minutesOutput');if(el.querySelector('.empty')){toast('Generate minutes before exporting.');return}let title=document.getElementById('minutesTitle').value;if(type==='txt'){let text=title+'\n\n'+el.innerText;let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='MeetMind-Minutes.txt';a.click();URL.revokeObjectURL(a.href)}else{let w=window.open('','_blank');w.document.write('<html><head><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:35px;line-height:1.6}h2{margin-top:25px}.summarygrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.summarybox{border:1px solid #ddd;padding:12px;border-radius:8px}</style></head><body>'+el.innerHTML+'</body></html>');w.document.close();w.print()}}
+const wave=document.getElementById('wave');for(let i=0;i<58;i++){let bar=document.createElement('i');bar.style.setProperty('--h',(8+Math.abs(Math.sin(i*.72))*34)+'px');wave.appendChild(bar)}
+renderRecent();renderMeetings();renderNotes();
+</script>
+</body>
+</html>
