@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MeetMind AI · Admin Console</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#172033;background:#f4f6fb}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1080px;margin:40px auto;padding:20px}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.brand{font-size:22px;font-weight:750}.muted{color:#667085}.panel{background:#fff;border:1px solid #e4e8f0;border-radius:14px;padding:22px;margin-top:20px;box-shadow:0 4px 18px #1822300a}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.stat{padding:18px;border:1px solid #e5e9f1;border-radius:12px}.stat b{display:block;font-size:30px;margin-top:10px}input{width:100%;padding:12px;border:1px solid #cfd6e2;border-radius:9px;margin:6px 0 14px}label{font-size:13px;font-weight:650}button,.link{border:0;border-radius:9px;padding:11px 16px;background:#5145cd;color:#fff;font-weight:650;cursor:pointer;text-decoration:none}.secondary{background:#edf0f7;color:#253047}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;padding:12px;border-bottom:1px solid #edf0f4;font-size:14px}th{color:#667085}.hidden{display:none}.status{padding:8px 12px;border-radius:20px;background:#edf0f7;font-size:12px}.error{color:#b42318}.ok{color:#067647}@media(max-width:600px){.wrap{margin:12px auto;padding:12px}.panel{padding:16px}table{display:block;overflow:auto}}
+</style>
+</head>
+<body><main class="wrap">
+<header class="head"><div><div class="brand">✦ MeetMind AI</div><div class="muted">Administration Console</div></div><div><a class="link secondary" href="./">Open Meeting Workspace</a> <span id="status" class="status">Not connected</span></div></header>
+<section id="login" class="panel" style="max-width:480px"><h2>Administrator sign in</h2><p class="muted">Use the administrator account created through the one-time secure bootstrap process.</p><label for="api">API URL</label><input id="api" type="url" placeholder="https://your-worker.workers.dev"><label for="email">Email</label><input id="email" type="email" autocomplete="username"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password"><button id="signIn">Sign in</button><p id="message" class="muted" role="status"></p></section>
+<section id="dashboard" class="hidden">
+<div class="panel"><div class="head"><div><h2>System overview</h2><p class="muted">Live figures returned by the authenticated API.</p></div><button id="refresh" class="secondary">Refresh</button></div><div class="grid"><div class="stat">Registered users<b id="usersCount">—</b></div><div class="stat">Stored meetings<b id="meetingsCount">—</b></div><div class="stat">Audit events<b id="auditCount">—</b></div></div></div>
+<div class="panel"><h2>User accounts</h2><p class="muted">Read-only account list. Account management actions are not enabled yet.</p><div id="userList" class="muted">Loading…</div></div>
+<div class="panel"><button id="signOut" class="secondary">Sign out</button></div>
+</section></main>
+<script src="./api/client.js" defer></script>
+<script>
+(()=>{'use strict';const $=id=>document.getElementById(id);const setStatus=(s)=>$('status').textContent=s;const say=s=>$('message').textContent=s;
+async function load(){const me=await window.MeetMindAPI.request('/api/v1/auth/me');if(me.user.role!=='admin')throw new Error('This account does not have administrator access.');$('login').classList.add('hidden');$('dashboard').classList.remove('hidden');setStatus('Administrator: '+me.user.email);const [o,u]=await Promise.all([window.MeetMindAPI.request('/api/v1/admin/overview'),window.MeetMindAPI.request('/api/v1/admin/users')]);$('usersCount').textContent=o.overview.users;$('meetingsCount').textContent=o.overview.meetings;$('auditCount').textContent=o.overview.audit_events;$('userList').innerHTML='<table><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Created</th></tr></thead><tbody>'+u.users.map(x=>'<tr><td>'+esc(x.email)+'</td><td>'+esc(x.role)+'</td><td>'+ (x.is_active?'Active':'Disabled')+'</td><td>'+esc(x.created_at)+'</td></tr>').join('')+'</tbody></table>'}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function signIn(){try{localStorage.setItem('meetmind_api_base_v1',$('api').value.trim().replace(/\/+$/,''));const d=await window.MeetMindAPI.request('/api/v1/auth/login',{method:'POST',body:JSON.stringify({email:$('email').value.trim(),password:$('password').value})});sessionStorage.setItem('meetmind_api_token_v1',d.token);$('password').value='';await load()}catch(e){say(e.message);setStatus('Sign in failed')}}
+$('signIn').addEventListener('click',signIn);$('refresh').addEventListener('click',()=>load().catch(e=>say(e.message)));$('signOut').addEventListener('click',()=>{sessionStorage.removeItem('meetmind_api_token_v1');$('dashboard').classList.add('hidden');$('login').classList.remove('hidden');setStatus('Signed out')});
+if(localStorage.getItem('meetmind_api_base_v1'))$('api').value=localStorage.getItem('meetmind_api_base_v1');
+if(sessionStorage.getItem('meetmind_api_token_v1'))load().catch(()=>{sessionStorage.removeItem('meetmind_api_token_v1')});
+})();
+</script></body></html>
