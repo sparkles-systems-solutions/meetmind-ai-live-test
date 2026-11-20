@@ -58,9 +58,19 @@
    setStatus('Connected · '+done+' meetings synced',true);say(done+' local meetings synchronized with your account.');
   }catch(e){setStatus('Sync failed');say(e.message)}
  }
+ let liveMeetingId=null,apiQueue=Promise.resolve();
+ function syncLive(status){
+  if(!token()||!Array.isArray(currentTranscript)||!currentTranscript.length||!liveMeetingId)return;
+  const snapshot={id:liveMeetingId,title:document.getElementById('meetingTitle')?.value||'Untitled meeting',createdAt:new Date().toISOString(),duration:document.getElementById('timer')?.textContent||'00:00',status,transcript:currentTranscript.map(x=>({...x}))};
+  apiQueue=apiQueue.then(()=>request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(snapshot))})).catch(e=>{say('API live sync error: '+e.message);throw e});
+ }
+ const originalStart=window.startRecording;
+ if(typeof originalStart==='function')window.startRecording=function(){const result=originalStart.apply(this,arguments);if(recording){liveMeetingId='live-'+crypto.randomUUID();syncLive('In progress')}return result};
+ const originalAdd=window.addTranscript;
+ if(typeof originalAdd==='function')window.addTranscript=function(){const result=originalAdd.apply(this,arguments);syncLive('In progress');return result};
  const previous=window.saveMeetingRecord;
  if(typeof previous==='function'){
-  window.saveMeetingRecord=function(){const result=previous.apply(this,arguments);const m=Array.isArray(meetings)?meetings[0]:null;if(m&&token())request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(m))}).then(()=>say('Meeting saved to your account and this device.')).catch(e=>say('Local save succeeded; API sync failed: '+e.message));return result}
+  window.saveMeetingRecord=function(){const result=previous.apply(this,arguments);const m=Array.isArray(meetings)?meetings[0]:null;if(m&&token()){const finalRecord={...m,id:liveMeetingId||m.id,status:'Completed'};apiQueue=apiQueue.then(()=>request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(finalRecord))})).then(()=>say('Meeting saved to your account and this device.')).catch(e=>say('Local save succeeded; API sync failed: '+e.message))}liveMeetingId=null;return result}
  }
  window.MeetMindAPI={request,login,logout,syncAll,checkSession,get baseUrl(){return base()}};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',panel,{once:true});else panel();
