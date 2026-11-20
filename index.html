@@ -25,12 +25,12 @@
  <div><div class="navlabel">PREFERENCES</div><nav class="nav">
   <button data-page="notes"><span class="ico">✧</span>Notes & Bookmarks</button>
   <button data-page="settings"><span class="ico">⚙</span>Settings</button>
-  <button data-page="admin"><span class="ico">♙</span>Admin Console</button>
+  <button type="button" onclick="location.href='./admin.html'"><span class="ico">♙</span>Admin Console</button>
  </nav></div>
- <div class="sidebottom"><b>🔒 Your privacy matters</b>Local-first demo. Test data stays in this browser. No paid API is connected.</div>
+ <div class="sidebottom"><b>🔒 Your privacy matters</b>Your meeting content stays on this device unless you sign in and enable secure API synchronization.</div>
 </aside>
 <main class="main">
- <header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="btn secondary mobilemenu" id="menuBtn">☰</button><div class="crumb">Workspace / <b id="crumb">Overview</b></div></div><div class="topright"><span class="pill">● LOCAL DEMO MODE</span><span class="muted small">Sinhala + English</span><div class="avatar">U</div></div></header>
+ <header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="btn secondary mobilemenu" id="menuBtn">☰</button><div class="crumb">Workspace / <b id="crumb">Overview</b></div></div><div class="topright"><span class="pill" id="apiTopStatus">● API SIGN-IN REQUIRED</span><span class="muted small">Sinhala + English</span><div class="avatar">U</div></div></header>
  <div class="content">
   <section class="page active" id="overview">
    <div class="welcome"><div><div class="small" style="color:#c8c5ff;font-weight:700;letter-spacing:1px">YOUR MEETING, UNDERSTOOD</div><h2>Good day! Ready for a smarter meeting?</h2><p>Capture spoken words, add Sinhala meanings, and prepare draft meeting notes.</p></div><button class="btn" onclick="showPage('live')">＋ Start a meeting</button></div>
@@ -62,13 +62,13 @@
     <div>
      <div class="recordhero"><h2>Meeting capture</h2><p>Choose your audio source and begin a test session.</p>
       <div class="field" style="margin-top:17px"><label style="color:#e0defe">Meeting title</label><input id="meetingTitle" value="Weekly Operations Meeting" style="background:#ffffff16;border-color:#ffffff2c;color:white"></div>
-      <div class="field"><label style="color:#e0defe">Audio source</label><select id="audioSource" style="background:#ffffff16;border-color:#ffffff2c;color:white"><option value="mic">Live microphone (browser speech recognition)</option><option value="screen" disabled>Computer / browser audio (not supported yet)</option><option value="both" disabled>Microphone + browser audio (not supported yet)</option><option value="demo">Demo mode — simulated transcript</option></select></div>
+      <div class="field"><label style="color:#e0defe">Audio source</label><select id="audioSource" style="background:#ffffff16;border-color:#ffffff2c;color:white"><option value="mic">Live microphone (browser speech recognition)</option><option value="screen" disabled>Computer / browser audio (not supported yet)</option><option value="both" disabled>Microphone + browser audio (not supported yet)</option></select></div>
       <label class="checkline" style="color:#e0defe"><input type="checkbox" id="consent" checked> I have informed participants and received recording consent.</label>
       <div class="recordcontrols"><button class="recordbtn" id="recordBtn" title="Start or stop recording">●</button><div><div class="timer" id="timer">00:00</div><div class="small" style="color:#d5d3f4" id="recordStatus">Ready to start</div></div><div style="margin-left:auto"><button class="btn" style="background:#ffffff20;color:white" onclick="addBookmark()">🔖 Bookmark</button></div></div>
       <div class="wave" id="wave"></div>
      </div>
      <div class="panel"><div class="panelhead"><h3>Live transcript</h3><span class="livebadge" id="liveBadge" style="color:#9ba3b3">NOT RECORDING</span></div><div class="transcript" id="transcript">
-      <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Choose Live microphone to test real speech recognition, or Demo mode for sample content.</p></div>
+      <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Choose Live microphone to start a real browser speech-recognition session.</p></div>
      </div></div>
 
 <div class="panel" id="folderStoragePanel">
@@ -105,7 +105,7 @@
   <section class="page" id="minutes">
    <div class="heading"><div><h1>AI Meeting Minutes</h1><p>Create a structured draft from a transcript. Add the Sinhala summary manually.</p></div><div class="toolbar"><button class="btn outline" onclick="exportMinutes('txt')">↓ TXT</button><button class="btn primary" onclick="exportMinutes('html')">↓ Print / PDF</button></div></div>
    <div class="panel"><div class="field"><label>Meeting title</label><input id="minutesTitle" value="Weekly Operations Meeting"></div><div class="field"><label>Paste meeting transcript</label><textarea id="minutesInput" style="min-height:130px" placeholder="Paste your meeting transcript here...">The team discussed the new system rollout. The IT team will complete user testing by Friday. Finance will confirm the budget. We agreed to conduct staff training next Monday. Any technical issues should be reported to the project coordinator.</textarea></div><div class="toolbar"><button class="btn primary" onclick="generateMinutes()">✨ Generate minutes draft</button><span class="muted small" style="align-self:center">Rule-based extraction only. No AI service or automatic translation is connected.</span></div></div>
-   <div class="panel" id="minutesOutput"><div class="empty"><div class="big">📝</div><b>Your meeting minutes will appear here</b><p class="small">Generate a demo summary from the transcript above.</p></div></div>
+   <div class="panel" id="minutesOutput"><div class="empty"><div class="big">📝</div><b>Your meeting minutes will appear here</b><p class="small">Create a structured draft from the captured transcript.</p></div></div>
   </section>
 
   <section class="page" id="notes">
@@ -114,7 +114,7 @@
   </section>
 
   <section class="page" id="settings">
-   <div class="heading"><div><h1>Settings</h1><p>Configure your language, privacy and local workspace.</p></div><button class="btn primary" onclick="toast('Settings saved for this demo session.')">Save settings</button></div>
+   <div class="heading"><div><h1>Settings</h1><p>Configure your language, privacy and local workspace.</p></div><button class="btn primary" onclick="toast('Settings saved locally.')">Save settings</button></div>
    <div class="settingsgrid">
     <div class="panel"><div class="panelhead"><h3>Language & display</h3></div><div class="field"><label>Application language</label><select><option>English</option><option>සිංහල</option></select></div><div class="field"><label>Translation preference</label><select><option>English transcript + Sinhala meaning</option><option>Sinhala transcript + English meaning</option><option>Show both equally</option></select></div><div class="field"><label>Time format</label><select><option>24-hour</option><option>12-hour</option></select></div></div>
     <div class="panel"><div class="panelhead"><h3>Privacy & storage</h3><span class="tag">Local-first</span></div><div class="checkline"><input type="checkbox" checked> Ask consent before recording</div><div class="checkline"><input type="checkbox" checked> Keep recordings on this device</div><div class="checkline"><input type="checkbox"> Enable optional cloud sync (disabled)</div><div class="checkline"><input type="checkbox" checked> Do not use meeting content for model training</div><p class="small muted">Cloud sync is not connected. Transcript records stay in this browser; browser speech recognition may send audio to its speech provider.</p></div>
