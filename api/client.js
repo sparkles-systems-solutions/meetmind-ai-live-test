@@ -53,9 +53,22 @@
   try{
    if(!token())throw new Error('Sign in before syncing.');
    const rows=Array.isArray(meetings)?meetings:[];
-   let done=0;
-   for(const m of rows){await request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(m))});done++}
-   setStatus('Connected · '+done+' meetings synced',true);say(done+' local meetings synchronized with your account.');
+   let pushed=0;
+   for(const m of rows){await request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(m))});pushed++}
+   const cloud=await request('/api/v1/meetings?limit=100');
+   let pulled=0;
+   for(const meta of (cloud.meetings||[])){
+    const detail=await request('/api/v1/meetings/'+encodeURIComponent(meta.id));
+    const remote=detail.meeting;
+    const record={id:remote.id,title:remote.title,date:remote.meeting_date,duration:remote.duration||'',status:remote.status||'Completed',createdAt:remote.created_at,transcript:remote.transcript||[],minutes_en:remote.minutes_en||'',minutes_si:remote.minutes_si||[]};
+    const at=meetings.findIndex(x=>x.id===record.id);
+    if(at>=0)meetings[at]={...meetings[at],...record};else{meetings.push(record);pulled++}
+   }
+   if(typeof saveStore==='function')saveStore();
+   if(typeof renderMeetings==='function')renderMeetings();
+   if(typeof renderRecent==='function')renderRecent();
+   setStatus('Connected · '+(pushed+pulled)+' records synced',true);
+   say('Sync complete: '+pushed+' uploaded, '+pulled+' downloaded.');
   }catch(e){setStatus('Sync failed');say(e.message)}
  }
  let liveMeetingId=null,apiQueue=Promise.resolve();
@@ -70,7 +83,7 @@
  if(typeof originalAdd==='function')window.addTranscript=function(){const result=originalAdd.apply(this,arguments);syncLive('In progress');return result};
  const previous=window.saveMeetingRecord;
  if(typeof previous==='function'){
-  window.saveMeetingRecord=function(){const result=previous.apply(this,arguments);const m=Array.isArray(meetings)?meetings[0]:null;if(m&&token()){const finalRecord={...m,id:liveMeetingId||m.id,status:'Completed'};apiQueue=apiQueue.then(()=>request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(finalRecord))})).then(()=>say('Meeting saved to your account and this device.')).catch(e=>say('Local save succeeded; API sync failed: '+e.message))}liveMeetingId=null;return result}
+  window.saveMeetingRecord=function(){const result=previous.apply(this,arguments);const m=Array.isArray(meetings)?meetings[0]:null;if(m&&token()){const finalRecord={...m,id:liveMeetingId||m.id,status:'Completed'};if(liveMeetingId){const localIndex=meetings.findIndex(x=>x.id===m.id);if(localIndex>=0){meetings[localIndex].id=liveMeetingId;saveStore();if(typeof renderMeetings==='function')renderMeetings();if(typeof renderRecent==='function')renderRecent()}}apiQueue=apiQueue.then(()=>request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(finalRecord))})).then(()=>say('Meeting saved to your account and this device.')).catch(e=>say('Local save succeeded; API sync failed: '+e.message))}liveMeetingId=null;return result}
  }
  window.MeetMindAPI={request,login,logout,syncAll,checkSession,get baseUrl(){return base()}};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',panel,{once:true});else panel();
