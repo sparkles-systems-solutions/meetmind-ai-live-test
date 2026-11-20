@@ -93,6 +93,16 @@ async function handle(req,env){
       .bind(id,user.id,title,String(body.meeting_date||new Date().toISOString()).slice(0,40),String(body.duration||"").slice(0,40),String(body.status||"completed").slice(0,30),String(body.language||"mixed").slice(0,20),transcript,String(body.minutes_en||"").slice(0,100000),String(body.minutes_si||"").slice(0,100000)).run();
     await audit(env,user,"meeting.upsert",id);return json({ok:true,id},201);
   }
+  if(path==="/api/v1/admin/overview"&&req.method==="GET"){
+    if(user.role!=="admin")return json({error:"Forbidden"},403);
+    const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM users) AS users,(SELECT COUNT(*) FROM meetings) AS meetings,(SELECT COUNT(*) FROM audit_log) AS audit_events").first();
+    return json({overview:counts});
+  }
+  if(path==="/api/v1/admin/users"&&req.method==="GET"){
+    if(user.role!=="admin")return json({error:"Forbidden"},403);
+    const rows=await env.DB.prepare("SELECT id,email,role,is_active,created_at FROM users ORDER BY created_at DESC LIMIT 200").all();
+    return json({users:rows.results||[]});
+  }
   const match=path.match(/^\/api\/v1\/meetings\/([A-Za-z0-9_-]+)$/);
   if(match){
     const id=match[1];
