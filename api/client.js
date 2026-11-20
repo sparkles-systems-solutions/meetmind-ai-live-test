@@ -62,7 +62,7 @@
  function syncLive(status){
   if(!token()||!Array.isArray(currentTranscript)||!currentTranscript.length||!liveMeetingId)return;
   const snapshot={id:liveMeetingId,title:document.getElementById('meetingTitle')?.value||'Untitled meeting',createdAt:new Date().toISOString(),duration:document.getElementById('timer')?.textContent||'00:00',status,transcript:currentTranscript.map(x=>({...x}))};
-  apiQueue=apiQueue.then(()=>request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(snapshot))})).catch(e=>{say('API live sync error: '+e.message);throw e});
+  apiQueue=apiQueue.then(()=>request('/api/v1/meetings',{method:'POST',body:JSON.stringify(payload(snapshot))})).catch(e=>{say('API live sync error: '+e.message)});
  }
  const originalStart=window.startRecording;
  if(typeof originalStart==='function')window.startRecording=function(){const result=originalStart.apply(this,arguments);if(recording){liveMeetingId='live-'+crypto.randomUUID();syncLive('In progress')}return result};
