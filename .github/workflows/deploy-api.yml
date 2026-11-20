@@ -16,6 +16,11 @@ jobs:
           node-version: "22"
       - name: Install Wrangler
         run: npm install --global wrangler@4
+      - name: Validate JavaScript syntax
+        working-directory: api
+        run: |
+          node --input-type=module --check < worker.js
+          node --check client.js
       - name: Validate deployment configuration
         working-directory: api
         env:
