@@ -15,7 +15,7 @@
 <div class="panel"><h2>User accounts</h2><p class="muted">Read-only account list. Account management actions are not enabled yet.</p><div id="userList" class="muted">Loading…</div></div>
 <div class="panel"><button id="signOut" class="secondary">Sign out</button></div>
 </section></main>
-<script src="./api/client.js" defer></script>
+<script src="./api/client.js"></script>
 <script>
 (()=>{'use strict';const $=id=>document.getElementById(id);const setStatus=(s)=>$('status').textContent=s;const say=s=>$('message').textContent=s;
 async function load(){const me=await window.MeetMindAPI.request('/api/v1/auth/me');if(me.user.role!=='admin')throw new Error('This account does not have administrator access.');$('login').classList.add('hidden');$('dashboard').classList.remove('hidden');setStatus('Administrator: '+me.user.email);const [o,u]=await Promise.all([window.MeetMindAPI.request('/api/v1/admin/overview'),window.MeetMindAPI.request('/api/v1/admin/users')]);$('usersCount').textContent=o.overview.users;$('meetingsCount').textContent=o.overview.meetings;$('auditCount').textContent=o.overview.audit_events;$('userList').innerHTML='<table><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Created</th></tr></thead><tbody>'+u.users.map(x=>'<tr><td>'+esc(x.email)+'</td><td>'+esc(x.role)+'</td><td>'+ (x.is_active?'Active':'Disabled')+'</td><td>'+esc(x.created_at)+'</td></tr>').join('')+'</tbody></table>'}
