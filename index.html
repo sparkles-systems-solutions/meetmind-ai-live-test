@@ -119,7 +119,7 @@
     <div class="panel"><div class="panelhead"><h3>Language & display</h3></div><div class="field"><label>Application language</label><select><option>English</option><option>සිංහල</option></select></div><div class="field"><label>Translation preference</label><select><option>English transcript + Sinhala meaning</option><option>Sinhala transcript + English meaning</option><option>Show both equally</option></select></div><div class="field"><label>Time format</label><select><option>24-hour</option><option>12-hour</option></select></div></div>
     <div class="panel"><div class="panelhead"><h3>Privacy & storage</h3><span class="tag">Local-first</span></div><div class="checkline"><input type="checkbox" checked> Ask consent before recording</div><div class="checkline"><input type="checkbox" checked> Keep recordings on this device</div><div class="checkline"><input type="checkbox"> Enable optional cloud sync (disabled)</div><div class="checkline"><input type="checkbox" checked> Do not use meeting content for model training</div><p class="small muted">Cloud sync is not connected. Transcript records stay in this browser; browser speech recognition may send audio to its speech provider.</p></div>
     <div class="panel"><div class="panelhead"><h3>Audio preferences</h3></div><div class="field"><label>Input device</label><select><option>System default microphone</option><option>External microphone</option></select></div><div class="field"><label>Transcript detail</label><select><option>Full transcript</option><option>Summary only</option></select></div></div>
-    <div class="panel"><div class="panelhead"><h3>Data management</h3></div><p class="small muted">Meetings and notes are stored in this browser on this device. Clearing browser data will delete them.</p><button class="btn danger" onclick="if(confirm('Clear demo notes and meeting records?')){notes=[];renderNotes();toast('Demo notes cleared.')}">Clear demo notes</button></div>
+    <div class="panel"><div class="panelhead"><h3>Data management</h3></div><p class="small muted">Meetings and notes are stored in this browser on this device. Clearing browser data will delete them.</p><button class="btn danger" onclick="if(confirm('Clear saved notes?')){notes=[];renderNotes();toast('Notes cleared.')}">Clear demo notes</button></div>
    </div>
   </section>
 
@@ -140,14 +140,8 @@
 const pages=['overview','live','meetings','minutes','notes','settings','admin'];
 const pageNames={overview:'Overview',live:'Live Meeting',meetings:'My Meetings',minutes:'AI Minutes',notes:'Notes & Bookmarks',settings:'Settings',admin:'Admin Console'};
 const STORE_KEY='meetmind_ai_workspace_v5';
-let meetings=[],notes=[],currentTranscript=[],recording=false,seconds=0,timerInterval=null,demoInterval=null,demoIndex=0;
+let meetings=[],notes=[],currentTranscript=[],recording=false,seconds=0,timerInterval=null;
 let recognition=null,restartTimer=null,manualStop=false,sessionStartedAt=null;
-const demoLines=[
- ['Speaker 01','We need to complete the system testing by Friday.','සිකුරාදාට පෙර අපි system testing අවසන් කළ යුතුයි.'],
- ['Speaker 02','The finance team will confirm the budget tomorrow.','Finance team එක හෙට budget එක තහවුරු කරයි.'],
- ['Speaker 01','Let us schedule staff training for next Monday.','ඊළඟ සඳුදා staff training එක සැලසුම් කරමු.'],
- ['Speaker 02','Any blockers should be reported to the project coordinator.','බාධාවක් තිබේ නම් project coordinator වෙත දැනුම් දෙන්න.']
-];
 function el(id){return document.getElementById(id)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(msg){const t=el('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(window.mmToastTimer);window.mmToastTimer=setTimeout(()=>t.classList.remove('show'),3200)}
@@ -197,20 +191,10 @@ function addTranscript(text,language){
 }
 function startTimer(){clearInterval(timerInterval);timerInterval=setInterval(()=>{seconds++;updateTimer()},1000)}
 function stopTimer(){clearInterval(timerInterval);timerInterval=null}
-function startDemo(){
- currentTranscript=[];seconds=0;updateTimer();renderTranscript();recording=true;manualStop=false;sessionStartedAt=new Date().toISOString();
- setRecordingUI(true,'Demo session running');startTimer();
- addTranscript(demoLines[demoIndex%demoLines.length][1],'English');
- addDemoMeaning(demoLines[(demoIndex)%demoLines.length][2]);demoIndex++;
- demoInterval=setInterval(()=>{if(!recording)return;const line=demoLines[demoIndex%demoLines.length];addTranscript(line[1],'English');if(currentTranscript.length)currentTranscript[currentTranscript.length-1].meaning=line[2];saveDraft();renderTranscript();demoIndex++},4500);
- toast('Demo session started.');
-}
-function addDemoMeaning(meaning){if(currentTranscript.length){currentTranscript[currentTranscript.length-1].meaning=meaning;saveDraft();renderTranscript()}}
 function startRecording(){
  if(recording)return;
  if(!el('consent').checked){toast('Please confirm participant consent before recording.');return}
  const source=el('audioSource').value;
- if(source==='demo'){startDemo();return}
  if(source!=='mic'){toast('This browser test supports microphone only. Computer/system audio is not available in this version.');return}
  const SpeechAPI=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SpeechAPI){toast('Speech recognition is not available in this browser. Please use the latest Google Chrome.');return}
@@ -259,7 +243,7 @@ function startRecording(){
  try{rec.start()}catch(e){recognition=null;recording=false;stopTimer();setRecordingUI(false,'Could not start');toast('Could not start speech recognition: '+e.message)}
 }
 function stopRecording(showMessage=true){
- manualStop=true;recording=false;clearTimeout(restartTimer);clearInterval(demoInterval);demoInterval=null;stopTimer();
+ manualStop=true;recording=false;clearTimeout(restartTimer);stopTimer();
  const old=el('interimLine');if(old)old.remove();
  const rec=recognition;recognition=null;
  if(rec){rec.onend=null;try{rec.stop()}catch(e){}}
