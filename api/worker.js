@@ -1,7 +1,7 @@
 const corsHeaders = (origin, env) => ({
-  "Access-Control-Allow-Origin": origin === env.ALLOWED_ORIGIN ? origin : "null",
+  ...(origin && origin === env.ALLOWED_ORIGIN ? {"Access-Control-Allow-Origin": origin} : {}),
   "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Bootstrap-Secret",
   "Vary": "Origin",
   "Cache-Control": "no-store"
 });
@@ -56,11 +56,13 @@ async function handle(req,env){
     const body=await req.json();
     const email=String(body.email||"").trim().toLowerCase(),password=String(body.password||"");
     if(!validEmail(email)||password.length<12)return json({error:"Valid email and password (minimum 12 characters) required"},400);
-    const existing=await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first();
-    if(existing.n>0)return json({error:"Bootstrap is already completed"},409);
+    // A single conditional INSERT makes bootstrap one-time even when two
+    // requests arrive concurrently. SQLite/D1 serializes the write statement.
     const salt=crypto.getRandomValues(new Uint8Array(16)),hash=await derive(password,salt),id=uuid();
-    await env.DB.prepare("INSERT INTO users(id,email,password_hash,password_salt,role) VALUES(?,?,?,?, 'admin')")
-      .bind(id,email,hash,b64u(salt)).run();
+    const created=await env.DB.prepare(
+      "INSERT INTO users(id,email,password_hash,password_salt,role) SELECT ?,?,?,?,'admin' WHERE NOT EXISTS (SELECT 1 FROM users)"
+    ).bind(id,email,hash,b64u(salt)).run();
+    if(!created.meta.changes)return json({error:"Bootstrap is already completed"},409);
     await audit(env,{id},"admin.bootstrap",id);
     return json({ok:true,message:"Admin account created. Remove or rotate BOOTSTRAP_SECRET now."},201);
   }
@@ -132,7 +134,10 @@ export default {
     const origin=req.headers.get("Origin")||"";
     const headers=corsHeaders(origin,env);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
-    if(origin!==env.ALLOWED_ORIGIN)return json({error:"Origin not allowed"},403,headers);
+    // Permit non-browser clients (no Origin header) for health checks and
+    // the explicitly secret-protected first-admin bootstrap. Browser origins
+    // remain strictly allow-listed.
+    if(origin && origin!==env.ALLOWED_ORIGIN)return json({error:"Origin not allowed"},403,headers);
     try{return await handle(req,env).then(res=>{const h=new Headers(res.headers);for(const [k,v] of Object.entries(headers))h.set(k,v);return new Response(res.body,{status:res.status,headers:h})})}
     catch(e){return json({error:"Internal server error",requestId:uuid()},500,headers)}
   }
