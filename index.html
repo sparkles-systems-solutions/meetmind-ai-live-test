@@ -33,17 +33,17 @@
  <header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="btn secondary mobilemenu" id="menuBtn">☰</button><div class="crumb">Workspace / <b id="crumb">Overview</b></div></div><div class="topright"><span class="pill" id="apiTopStatus">● API SIGN-IN REQUIRED</span><span class="muted small">Sinhala + English</span><div class="avatar">U</div></div></header>
  <div class="content">
   <section class="page active" id="overview">
-   <div class="welcome"><div><div class="small" style="color:#c8c5ff;font-weight:700;letter-spacing:1px">YOUR MEETING, UNDERSTOOD</div><h2>Good day! Ready for a smarter meeting?</h2><p>Capture spoken words, add Sinhala meanings, and prepare draft meeting notes.</p></div><button class="btn" onclick="showPage('live')">＋ Start a meeting</button></div>
+   <div class="welcome"><div><div class="small" style="color:#c8c5ff;font-weight:700;letter-spacing:1px">YOUR MEETING, UNDERSTOOD</div><h2>Good day! Ready for a smarter meeting?</h2><p>Capture microphone speech, review transcripts and save meeting records securely.</p></div><button class="btn" onclick="showPage('live')">＋ Start a meeting</button></div>
    <div class="cards">
-    <div class="stat"><div class="stathead">Total meetings <span class="staticon">▤</span></div><strong id="statMeetings">12</strong><span class="trend">↑ Your workspace</span></div>
-    <div class="stat"><div class="stathead">Hours captured <span class="staticon">◷</span></div><strong>08.4</strong><span class="muted small">Across all sessions</span></div>
-    <div class="stat"><div class="stathead">Action items <span class="staticon">✓</span></div><strong>26</strong><span class="muted small">From meeting minutes</span></div>
-    <div class="stat"><div class="stathead">Languages <span class="staticon">文</span></div><strong>02</strong><span class="muted small">English · සිංහල</span></div>
+    <div class="stat"><div class="stathead">Total meetings <span class="staticon">▤</span></div><strong id="statMeetings">12</strong><span class="muted small">Saved on this device</span></div>
+    <div class="stat"><div class="stathead">Hours captured <span class="staticon">◷</span></div><strong id="statHours">0.0</strong><span class="muted small">Hours in saved meetings</span></div>
+    <div class="stat"><div class="stathead">Action items <span class="staticon">✓</span></div><strong id="statActions">0</strong><span class="muted small">Recorded action items</span></div>
+    <div class="stat"><div class="stathead">Languages <span class="staticon">文</span></div><strong id="statApi">OFF</strong><span class="muted small">Authenticated API sync</span></div>
    </div>
    <div class="grid2">
     <div class="panel"><div class="panelhead"><h3>Recent meetings</h3><button class="btn secondary" onclick="showPage('meetings')">View all →</button></div><div id="recentList"></div></div>
     <div class="panel"><div class="panelhead"><h3>Quick actions</h3><span class="muted small">Get started</span></div>
-     <div class="meetingrow"><div class="meetingicon">🎙</div><div class="meetinginfo"><b>Start live transcription</b><span>Capture mic or browser audio</span></div><button class="btn secondary" onclick="showPage('live')">Open</button></div>
+     <div class="meetingrow"><div class="meetingicon">🎙</div><div class="meetinginfo"><b>Start live transcription</b><span>Capture microphone speech</span></div><button class="btn secondary" onclick="showPage('live')">Open</button></div>
      <div class="meetingrow"><div class="meetingicon">📝</div><div class="meetinginfo"><b>Create meeting minutes</b><span>Summaries and action points</span></div><button class="btn secondary" onclick="showPage('minutes')">Open</button></div>
      <div class="meetingrow"><div class="meetingicon">🔖</div><div class="meetinginfo"><b>Review saved notes</b><span>Bookmarks and highlights</span></div><button class="btn secondary" onclick="showPage('notes')">Open</button></div>
     </div>
@@ -68,7 +68,7 @@
       <div class="wave" id="wave"></div>
      </div>
      <div class="panel"><div class="panelhead"><h3>Live transcript</h3><span class="livebadge" id="liveBadge" style="color:#9ba3b3">NOT RECORDING</span></div><div class="transcript" id="transcript">
-      <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Choose Live microphone to start a real browser speech-recognition session.</p></div>
+      <div class="empty"><div class="big">🎧</div><b>Your transcript will appear here</b><p class="small">Microphone speech recognition is provided by your browser. API synchronization is available after sign-in.</p></div>
      </div></div>
 
 <div class="panel" id="folderStoragePanel">
@@ -304,7 +304,16 @@ function renderMeetings(){
  body.innerHTML=rows.length?rows.map((m,i)=>'<tr><td><b>'+esc(m.title)+'</b></td><td>'+esc(m.date||'—')+'</td><td>'+esc(m.duration||'—')+'</td><td><span class="tag">'+esc(m.status||'Completed')+'</span></td><td><button class="btn secondary" data-open-meeting="'+esc(m.id)+'">Open</button></td></tr>').join(''):'<tr><td colspan="5" class="empty">No saved meetings found.</td></tr>';
  body.querySelectorAll('[data-open-meeting]').forEach(b=>b.addEventListener('click',()=>openMeeting(b.dataset.openMeeting)));
 }
+function updateDashboardStats(){
+ const total=Array.isArray(meetings)?meetings.length:0;
+ const hours=(meetings||[]).reduce((sum,m)=>{const p=String(m.duration||'').split(':').map(Number);return sum+(p.length===2?(p[0]*60+p[1])/60:p.length===3?p[0]+p[1]/60+p[2]/3600:0)},0);
+ const actions=(meetings||[]).reduce((n,m)=>n+(Array.isArray(m.actionItems)?m.actionItems.length:0),0);
+ if(el('statMeetings'))el('statMeetings').textContent=String(total);
+ if(el('statHours'))el('statHours').textContent=hours.toFixed(1);
+ if(el('statActions'))el('statActions').textContent=String(actions);
+}
 function renderRecent(){
+ updateDashboardStats();
  const box=el('recentList');if(!box)return;
  box.innerHTML=meetings.slice(0,3).map(m=>'<div class="meetingrow"><div class="meetingicon">📋</div><div class="meetinginfo"><b>'+esc(m.title)+'</b><span>'+esc(m.date)+' · '+esc(m.duration)+'</span></div><span class="tag">'+esc(m.status)+'</span></div>').join('')||'<div class="empty">No meetings saved yet. Start your first meeting.</div>';
  if(el('statMeetings'))el('statMeetings').textContent=String(meetings.length);
