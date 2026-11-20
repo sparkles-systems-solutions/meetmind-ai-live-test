@@ -4,7 +4,7 @@
  const $=id=>document.getElementById(id);
  const base=()=>String(localStorage.getItem(KEY)||'').trim().replace(/\/+$/,'');
  const token=()=>sessionStorage.getItem(TOKEN)||'';
- const setStatus=(s,good=false)=>{const n=$('apiConnectionStatus');if(n){n.textContent=s;n.className=good?'tag':'tag gray'}};
+ const setStatus=(s,good=false)=>{const n=$('apiConnectionStatus');if(n){n.textContent=s;n.className=good?'tag':'tag gray'}const top=$('apiTopStatus');if(top){top.textContent=good?'● API CONNECTED':'● '+String(s).toUpperCase();if($('statApi'))$('statApi').textContent=good?'ON':'OFF'}};
  async function request(path,opts={}){
   if(!base())throw new Error('Enter the deployed API URL first.');
   const headers={'Content-Type':'application/json',...(opts.headers||{})};
