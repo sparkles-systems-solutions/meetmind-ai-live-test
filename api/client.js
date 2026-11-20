@@ -60,7 +60,7 @@
    for(const meta of (cloud.meetings||[])){
     const detail=await request('/api/v1/meetings/'+encodeURIComponent(meta.id));
     const remote=detail.meeting;
-    const record={id:remote.id,title:remote.title,date:remote.meeting_date,duration:remote.duration||'',status:remote.status||'Completed',createdAt:remote.created_at,transcript:remote.transcript||[],minutes_en:remote.minutes_en||'',minutes_si:remote.minutes_si||[]};
+    const record={id:remote.id,title:remote.title,date:remote.meeting_date,duration:remote.duration||'',status:remote.status||'Completed',createdAt:remote.created_at,transcript:remote.transcript||[],minutes_en:remote.minutes_en||'',minutes_si:remote.minutes_si||''};
     const at=meetings.findIndex(x=>x.id===record.id);
     if(at>=0)meetings[at]={...meetings[at],...record};else{meetings.push(record);pulled++}
    }
